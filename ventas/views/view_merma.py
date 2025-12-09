@@ -19,6 +19,7 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
+from django.db.models import Q
 from ventas.models import Productos
 import json
 
@@ -50,10 +51,17 @@ def merma_list_view(request):
     # ============================================================
     # Criterios de búsqueda:
     # - eliminado__isnull=True: Productos no eliminados
-    # - exclude(estado_merma='activo'): Excluir productos activos
+    # - estado_merma='en_merma': Productos en estado de merma
+    # - O productos con historial de merma (motivo_merma, fecha_merma o cantidad_merma)
+    #   Esto incluye productos que fueron reabastecidos pero aún tienen historial
     productos_merma = Productos.objects.filter(
         eliminado__isnull=True
-    ).exclude(estado_merma='activo')
+    ).filter(
+        Q(estado_merma='en_merma') | 
+        Q(motivo_merma__isnull=False) |
+        Q(fecha_merma__isnull=False) |
+        (Q(cantidad_merma__isnull=False) & Q(cantidad_merma__gt=0))
+    ).distinct()
     
     # ============================================================
     # PASO 2: Mostrar todos los productos en merma (sin filtro)
@@ -68,10 +76,12 @@ def merma_list_view(request):
     total_unidades = 0
     
     for producto in productos_merma:
-        # Calcular pérdida por producto (cantidad × precio)
-        perdida_producto = producto.cantidad * producto.precio
+        # Usar cantidad_merma si está disponible, sino usar cantidad
+        cantidad_perdida = producto.cantidad_merma if (producto.cantidad_merma and producto.cantidad_merma > 0) else producto.cantidad
+        # Calcular pérdida por producto (cantidad_merma × precio)
+        perdida_producto = cantidad_perdida * producto.precio
         perdida_total += perdida_producto
-        total_unidades += producto.cantidad
+        total_unidades += cantidad_perdida
     
     # ============================================================
     # PASO 4: Preparar el contexto para el template
@@ -134,19 +144,17 @@ def mover_a_merma_ajax(request):
         # Extraer la lista de IDs de productos
         producto_ids = data.get('producto_ids', [])
         
-        # Extraer el motivo de la merma (por defecto: 'deteriorado')
-        motivo = data.get('motivo', 'deteriorado')
+        # Extraer el motivo detallado de la merma
+        motivo_merma = data.get('motivo_merma', '').strip()
         
         # ============================================================
-        # PASO 3: Validar que el motivo sea válido
+        # PASO 3: Validar que se proporcionó un motivo
         # ============================================================
-        # Solo aceptamos estos tres motivos
-        motivos_validos = ['vencido', 'deteriorado', 'dañado']
-        
-        if motivo not in motivos_validos:
+        # Ya no necesitamos validar estado_merma porque siempre será 'en_merma'
+        if not motivo_merma:
             return JsonResponse({
                 'success': False,
-                'error': f'Motivo inválido. Usa: {", ".join(motivos_validos)}'
+                'error': 'Debe proporcionar un motivo detallado para mover el producto a merma'
             })
         
         # ============================================================
@@ -161,19 +169,47 @@ def mover_a_merma_ajax(request):
         # ============================================================
         # PASO 5: Mover productos a merma
         # ============================================================
+        # Importar timezone para fecha_merma
+        from django.utils import timezone
+        
+        # Importar Alertas para resolver alertas automáticamente
+        from ventas.models import Alertas
+        
         # Buscar los productos por sus IDs
         productos = Productos.objects.filter(id__in=producto_ids)
         
-        # Actualizar el estado_merma de todos los productos seleccionados
-        # update() es más eficiente que un bucle for porque hace una sola consulta SQL
-        contador = productos.update(estado_merma=motivo)
+        # NUEVA LÓGICA: Limpiar "contenido" del producto (cantidad, caducidad, elaboración)
+        # El SKU permanece pero sin stock ni fechas (ese lote ya no existe)
+        contador = 0
+        for producto in productos:
+            # Guardar la cantidad que se va a merma antes de ponerla en 0
+            producto.cantidad_merma = producto.cantidad if producto.cantidad > 0 else 0
+            producto.cantidad = 0  # Reducir cantidad a 0
+            producto.caducidad = None  # Limpiar caducidad (ese lote ya no existe)
+            producto.elaboracion = None  # Limpiar elaboración (ese lote ya no existe)
+            producto.estado_merma = 'en_merma'  # Estado especial para productos en merma
+            producto.motivo_merma = motivo_merma  # Registrar motivo
+            producto.fecha_merma = timezone.now()  # Registrar fecha
+            producto.save()
+            contador += 1
+        
+        # Resolver automáticamente todas las alertas activas de estos productos
+        # ya que están en merma y no necesitan alertas
+        alertas_resueltas = Alertas.objects.filter(
+            productos_id__in=producto_ids,
+            estado='activa'
+        ).update(estado='resuelta')
         
         # ============================================================
         # PASO 6: Retornar respuesta exitosa
         # ============================================================
+        mensaje = f'Se movieron {contador} producto(s) a merma. Cantidad reducida a 0. Puedes reabastecer editando el producto.'
+        if alertas_resueltas > 0:
+            mensaje += f' Se resolvieron {alertas_resueltas} alerta(s) automáticamente.'
+        
         return JsonResponse({
             'success': True,
-            'mensaje': f'Se movieron {contador} producto(s) a merma ({motivo})'
+            'mensaje': mensaje
         })
         
     except json.JSONDecodeError:

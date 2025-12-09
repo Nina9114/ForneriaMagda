@@ -1,5 +1,6 @@
 from django import forms
 from django.db.models import Q
+from decimal import Decimal
 from ventas.models.productos import Productos, Categorias, Nutricional
 from ventas.funciones.validators import (
     validador_texto_estricto,
@@ -9,42 +10,28 @@ from ventas.funciones.validators import (
     validador_fecha_no_futuro,
     validador_fecha_no_pasado,
     validador_texto_solo_letras_opcional,
-    validador_decimal_opcional_no_negativo,  # NUEVO
+    validador_decimal_opcional_no_negativo,
 )
 
 class ProductoForm(forms.ModelForm):
-    # Nuevo: campos auxiliares para construir 'formato'
-    formato_cantidad = forms.IntegerField(
-        min_value=1,
-        required=True,
-        widget=forms.NumberInput(attrs={
-            'min': '1',
-            'step': '1',
-            'inputmode': 'numeric',
-            'placeholder': 'Ej: 1',
-            'pattern': r'^\d+$',
-        }),
-        label='Formato:'  # etiqueta del grupo
-    )
-    formato_unidad = forms.ChoiceField(
-        required=True,
-        choices=[
-            ('kg', 'Kilogramos'),
-            ('g', 'Gramos'),
-            ('l', 'Litros'),
-            ('ml', 'Mililitros'),
-        ],
-        widget=forms.Select(attrs={'title': 'Unidad', 'id': 'id_formato_unidad'}),
-        label=''  # sin texto visible para no mostrar "Unidad"
-    )
+    """
+    Formulario para crear y editar productos con sistema de unidades de medida.
+    
+    Nuevo sistema:
+    - unidad_stock: Unidad en que se almacena (unidad, kg, g, l, ml)
+    - unidad_venta: Unidad en que se vende (puede ser diferente)
+    - precio_por_unidad_venta: Precio por unidad de venta
+    - cantidad: Permite decimales (para kg, litros, etc.)
+    """
 
     class Meta:
         model = Productos
         fields = [
-            'nombre', 'descripcion', 'marca', 'precio', 'cantidad',
+            'nombre', 'descripcion', 'marca', 
+            'unidad_stock', 'unidad_venta', 'precio_por_unidad_venta',
+            'cantidad', 'stock_minimo', 'stock_maximo',
             'caducidad', 'elaboracion', 'tipo',
-            'formato', 'categorias', 'stock_minimo', 'stock_maximo',
-            'presentacion'
+            'categorias', 'presentacion'
         ]
         widgets = {
             'nombre': forms.TextInput(attrs={
@@ -71,27 +58,40 @@ class ProductoForm(forms.ModelForm):
             'categorias': forms.Select(attrs={'title': 'Selecciona una categoría'}),
             'caducidad': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date'}),
             'elaboracion': forms.DateInput(format='%Y-%m-%d', attrs={'type': 'date'}),
-            'precio': forms.NumberInput(attrs={
+            'unidad_stock': forms.Select(attrs={
+                'class': 'form-control',
+                'title': 'Unidad en que se almacena el stock'
+            }),
+            'unidad_venta': forms.Select(attrs={
+                'class': 'form-control',
+                'title': 'Unidad en que se vende el producto'
+            }),
+            'precio_por_unidad_venta': forms.NumberInput(attrs={
                 'min': '0', 'step': '0.01', 'inputmode': 'decimal',
-                'placeholder': 'Ej: 1990 o 1990.00',
-                'pattern': r'\d{1,8}(\.\d{1,2})?'
+                'placeholder': 'Ej: 3000.00',
+                'pattern': r'\d{1,8}(\.\d{1,2})?',
+                'title': 'Precio por unidad de venta (ej: precio por kilo, precio por litro)'
             }),
             'cantidad': forms.NumberInput(attrs={
-                'min': '0', 'step': '1', 'inputmode': 'numeric',
-                'placeholder': 'Ej: 10', 'pattern': r'\d+'
+                'min': '0', 'step': '0.001', 'inputmode': 'decimal',
+                'placeholder': 'Ej: 20.5 (permite decimales para kg, litros)',
+                'pattern': r'\d+(\.\d{1,3})?'
             }),
             'stock_minimo': forms.NumberInput(attrs={
-                'min': '0', 'step': '1', 'inputmode': 'numeric',
-                'placeholder': 'Ej: 5', 'pattern': r'\d+'
+                'min': '0', 'step': '0.001', 'inputmode': 'decimal',
+                'placeholder': 'Ej: 5.0 (permite decimales)',
+                'pattern': r'\d+(\.\d{1,3})?'
             }),
             'stock_maximo': forms.NumberInput(attrs={
-                'min': '0', 'step': '1', 'inputmode': 'numeric',
-                'placeholder': 'Ej: 100', 'pattern': r'\d+'
+                'min': '0', 'step': '0.001', 'inputmode': 'decimal',
+                'placeholder': 'Ej: 100.0 (permite decimales)',
+                'pattern': r'\d+(\.\d{1,3})?'
             }),
             'presentacion': forms.TextInput(attrs={
-                'placeholder': 'Ej: Bolsa, Caja, Botella',
+                'placeholder': 'Ej: 100g, 500ml, Bolsa, Caja (peso/tamaño o presentación)',
                 'autocomplete': 'off',
                 'inputmode': 'text',
+                'title': 'Peso/tamaño individual del producto (ej: 100g por galleta) o presentación (Bolsa, Caja)'
             }),
         }
 
@@ -117,8 +117,11 @@ class ProductoForm(forms.ModelForm):
         return validador_fecha_no_futuro(valor, field_label="Fecha de elaboración")
 
     def clean_caducidad(self):
-        return validador_fecha_no_pasado(self.cleaned_data.get('caducidad'),
-                                         field_label="Fecha de caducidad")
+        # Caducidad ahora puede ser NULL (para productos en merma)
+        caducidad = self.cleaned_data.get('caducidad')
+        if caducidad is None:
+            return None  # Permitir NULL para productos en merma
+        return validador_fecha_no_pasado(caducidad, field_label="Fecha de caducidad")
 
     def clean(self):
         cleaned = super().clean()
@@ -128,6 +131,8 @@ class ProductoForm(forms.ModelForm):
             self.add_error('caducidad', 'La caducidad debe ser posterior a la fecha de elaboración.')
 
         # Unicidad por combinación nombre+marca (case-insensitive).
+        # IMPORTANTE: Validación estricta - no permite duplicados, incluso si está en merma
+        # Si un producto está en merma, debe reabastecerse editando el existente, no creando uno nuevo
         nombre = cleaned.get('nombre')
         marca = cleaned.get('marca') or None  # el validador opcional puede dejar None/""
 
@@ -135,25 +140,24 @@ class ProductoForm(forms.ModelForm):
             if not marca:
                 # Marca vacía/None: considerar equivalentes NULL y "" en BD
                 qs = Productos.objects.filter(
-                    nombre__iexact=nombre
+                    nombre__iexact=nombre,
+                    eliminado__isnull=True  # Solo productos no eliminados
                 ).filter(Q(marca__isnull=True) | Q(marca__exact=''))
             else:
-                qs = Productos.objects.filter(nombre__iexact=nombre, marca__iexact=marca)
+                qs = Productos.objects.filter(
+                    nombre__iexact=nombre,
+                    marca__iexact=marca,
+                    eliminado__isnull=True  # Solo productos no eliminados
+                )
 
             if self.instance.pk:
                 qs = qs.exclude(pk=self.instance.pk)
 
             if qs.exists():
-                self.add_error('nombre', 'Ya existe un producto con este nombre y marca.')
+                self.add_error('nombre', 'Ya existe un producto con este nombre y marca. Si está en merma, edítalo para reabastecerlo.')
 
         return cleaned
 
-    def clean_formato_cantidad(self):
-        valor = validador_entero_no_negativo(self.cleaned_data.get('formato_cantidad'),
-                                             field_label="Cantidad de formato")
-        if int(valor) <= 0:
-            raise forms.ValidationError("Debe ser un entero positivo (mayor que 0).")
-        return valor
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -180,21 +184,20 @@ class ProductoForm(forms.ModelForm):
         # Asignamos el queryset filtrado y ordenado
         self.fields['categorias'].queryset = qs.order_by('nombre')
 
-        # Quitamos el “---” y usamos un texto claro como placeholder
+        # Quitamos el "---" y usamos un texto claro como placeholder
         self.fields['categorias'].empty_label = "Selecciona categoría..."
 
-        # Prefill de formato al editar (e.g., "1 kg" -> cantidad=1, unidad="kg")
-        fmt = getattr(self.instance, 'formato', None)
-        if fmt:
-            try:
-                num, unit = str(fmt).split()
-                if num.isdigit():
-                    self.fields['formato_cantidad'].initial = int(num)
-                unidades_validas = dict(self.fields['formato_unidad'].choices)
-                if unit in unidades_validas:
-                    self.fields['formato_unidad'].initial = unit
-            except Exception:
-                pass
+        # Prellenar fechas y ajustar formatos de entrada
+        self.fields['caducidad'].initial = getattr(self.instance, 'caducidad', None)
+        self.fields['elaboracion'].initial = getattr(self.instance, 'elaboracion', None)
+        self.fields['caducidad'].input_formats = ['%Y-%m-%d']
+        self.fields['elaboracion'].input_formats = ['%Y-%m-%d']
+        
+        # Prefill de unidades al editar
+        if self.instance.pk:
+            self.fields['unidad_stock'].initial = getattr(self.instance, 'unidad_stock', 'unidad')
+            self.fields['unidad_venta'].initial = getattr(self.instance, 'unidad_venta', 'unidad')
+            self.fields['precio_por_unidad_venta'].initial = getattr(self.instance, 'precio_por_unidad_venta', None) or getattr(self.instance, 'precio', None)
 
     def clean_tipo(self):
         # Validamos “tipo” permitiendo SOLO letras y espacios.
@@ -205,13 +208,53 @@ class ProductoForm(forms.ModelForm):
             max_len=100
         )
 
-    def clean_precio(self):
-        from ventas.funciones.validators import validador_precio_decimal_estricto
-        return validador_precio_decimal_estricto(self.cleaned_data.get('precio'), field_label="Precio")
 
     def clean_cantidad(self):
-        from ventas.funciones.validators import validador_entero_no_negativo
-        return validador_entero_no_negativo(self.cleaned_data.get('cantidad'), field_label="Cantidad")
+        """Valida cantidad permitiendo decimales."""
+        cantidad = self.cleaned_data.get('cantidad')
+        if cantidad is None:
+            return Decimal('0')
+        try:
+            cantidad_decimal = Decimal(str(cantidad))
+            if cantidad_decimal < Decimal('0'):
+                raise forms.ValidationError("La cantidad no puede ser negativa.")
+            return cantidad_decimal
+        except (ValueError, TypeError):
+            raise forms.ValidationError("La cantidad debe ser un número válido.")
+    
+    def clean_stock_minimo(self):
+        """Valida stock_minimo permitiendo decimales."""
+        stock_min = self.cleaned_data.get('stock_minimo')
+        if stock_min is None:
+            return None
+        try:
+            stock_decimal = Decimal(str(stock_min))
+            if stock_decimal < Decimal('0'):
+                raise forms.ValidationError("El stock mínimo no puede ser negativo.")
+            return stock_decimal
+        except (ValueError, TypeError):
+            raise forms.ValidationError("El stock mínimo debe ser un número válido.")
+    
+    def clean_stock_maximo(self):
+        """Valida stock_maximo permitiendo decimales."""
+        stock_max = self.cleaned_data.get('stock_maximo')
+        if stock_max is None:
+            return None
+        try:
+            stock_decimal = Decimal(str(stock_max))
+            if stock_decimal < Decimal('0'):
+                raise forms.ValidationError("El stock máximo no puede ser negativo.")
+            return stock_decimal
+        except (ValueError, TypeError):
+            raise forms.ValidationError("El stock máximo debe ser un número válido.")
+    
+    def clean_precio_por_unidad_venta(self):
+        """Valida precio_por_unidad_venta."""
+        from ventas.funciones.validators import validador_precio_decimal_estricto
+        return validador_precio_decimal_estricto(
+            self.cleaned_data.get('precio_por_unidad_venta'), 
+            field_label="Precio por unidad de venta"
+        )
 
     def clean_elaboracion(self):
         # Elaboración opcional: permitir vacío
@@ -221,23 +264,18 @@ class ProductoForm(forms.ModelForm):
         from ventas.funciones.validators import validador_fecha_no_futuro
         return validador_fecha_no_futuro(valor, field_label="Fecha de elaboración")
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # Prellenar fechas y ajustar formatos de entrada
-        self.fields['caducidad'].initial = getattr(self.instance, 'caducidad', None)
-        self.fields['elaboracion'].initial = getattr(self.instance, 'elaboracion', None)
-        self.fields['caducidad'].input_formats = ['%Y-%m-%d']
-        self.fields['elaboracion'].input_formats = ['%Y-%m-%d']
 
     def save(self, commit=True):
         instance = super().save(commit=False)
 
-        # Completar 'formato' con los campos auxiliares
-        cantidad_fmt = self.cleaned_data.get('formato_cantidad')
-        unidad_fmt = self.cleaned_data.get('formato_unidad')
-        if cantidad_fmt and unidad_fmt:
-            instance.formato = f"{cantidad_fmt} {unidad_fmt}"
+        # Mantener compatibilidad: copiar precio_por_unidad_venta a precio (para compatibilidad con código existente)
+        if instance.precio_por_unidad_venta:
+            instance.precio = instance.precio_por_unidad_venta
+
+        # Mantener compatibilidad: copiar presentacion a formato (para compatibilidad con código que aún usa formato)
+        # Siempre actualizar formato con presentacion si presentacion tiene valor
+        if instance.presentacion:
+            instance.formato = instance.presentacion
 
         # Asegurar que 'nutricional_id' nunca sea NULL
         if instance.nutricional_id is None:

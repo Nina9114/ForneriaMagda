@@ -340,7 +340,7 @@
                                     <td><strong>{{ producto.nombre }}</strong></td>
                                     <td>${{ producto.precio|floatformat:"0" }}</td>
                                     <td>{{ producto.cantidad }}</td>
-                                    <td>{{ producto.caducidad|date:"d/m/Y" }}</td>
+                                    <td>{% if producto.caducidad %}{{ producto.caducidad|date:"d/m/Y" }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
                                 </tr>
                                 {% empty %}
                                 <tr>

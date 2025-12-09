@@ -122,10 +122,10 @@ def reportes_view(request):
         # REPORTE DE PRODUCTOS
         # ------------------------------------------------------------
         if incluir_productos:
-            # Obtener productos activos (no en merma, no eliminados)
+            # Obtener productos activos (no en merma, no inactivos, no eliminados)
             productos = Productos.objects.filter(
                 eliminado__isnull=True,
-                estado_merma='activo'
+                estado_merma='activo'  # Solo productos activos (excluye inactivos y en_merma)
             ).select_related('categorias')
             
             # Calcular totales

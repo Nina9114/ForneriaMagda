@@ -25,3 +25,6 @@ from .movimientos import MovimientosInventario
 
 # --- Modelos de Proveedores (NUEVO) ---
 from .proveedores import Proveedor, FacturaProveedor, DetalleFacturaProveedor, PagoProveedor
+
+# --- Modelos de Lotes (NUEVO) ---
+from .lotes import Lote

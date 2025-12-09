@@ -26,7 +26,7 @@
     // Función para crear el HTML de un item con botón
     function createItemHtml(item) {
       const productoId = item.id || '';
-      const productoUrl = productoId ? `/inventario/editar/${productoId}/` : '#';
+      const productoUrl = productoId ? `/inventario/detalle/${productoId}/` : '#';
       return `
         <li style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <span>${item.nombre} — ${fmt(item.caducidad)}</span>
@@ -47,7 +47,7 @@
                "
                onmouseover="this.style.backgroundColor='#c9a030'"
                onmouseout="this.style.backgroundColor='#D4AF37'"
-               title="Ver y editar producto">
+               title="Ver detalles del producto">
               Ver
             </a>
           ` : ''}

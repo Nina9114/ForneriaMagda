@@ -56,13 +56,30 @@
             {% if form.categorias.errors %}<div class="field-error">{{ form.categorias.errors|striptags }}</div>{% endif %}
           </div>
 
+          <!-- Unidades de Medida -->
           <div class="form-row">
-            {{ form.precio.label_tag }} {{ form.precio }}
-            {% if form.precio.errors %}<div class="field-error">{{ form.precio.errors|striptags }}</div>{% endif %}
+            <label>Unidad de Stock:</label>
+            {{ form.unidad_stock }}
+            <small class="form-text text-muted">Unidad en que se almacena el stock (ej: unidad, kg, litros)</small>
+            {% if form.unidad_stock.errors %}<div class="field-error">{{ form.unidad_stock.errors|striptags }}</div>{% endif %}
+          </div>
+
+          <div class="form-row">
+            <label>Unidad de Venta:</label>
+            {{ form.unidad_venta }}
+            <small class="form-text text-muted">Unidad en que se vende el producto (puede ser diferente a stock)</small>
+            {% if form.unidad_venta.errors %}<div class="field-error">{{ form.unidad_venta.errors|striptags }}</div>{% endif %}
+          </div>
+
+          <div class="form-row">
+            {{ form.precio_por_unidad_venta.label_tag }} {{ form.precio_por_unidad_venta }}
+            <small class="form-text text-muted">Precio por unidad de venta (ej: $3,000 por kilo, $500 por unidad)</small>
+            {% if form.precio_por_unidad_venta.errors %}<div class="field-error">{{ form.precio_por_unidad_venta.errors|striptags }}</div>{% endif %}
           </div>
 
           <div class="form-row">
             {{ form.cantidad.label_tag }} {{ form.cantidad }}
+            <small class="form-text text-muted">Cantidad de stock (permite decimales: ej: 20.5 kilos, 1.25 litros)</small>
             {% if form.cantidad.errors %}<div class="field-error">{{ form.cantidad.errors|striptags }}</div>{% endif %}
           </div>
 
@@ -77,7 +94,9 @@
           </div>
 
           <div class="form-row">
-            {{ form.presentacion.label_tag }} {{ form.presentacion }}
+            <label for="{{ form.presentacion.id_for_label }}">Peso/Tamaño o Presentación:</label>
+            {{ form.presentacion }}
+            <small class="form-text text-muted">Ej: 100g (por galleta), 500ml (por botella), o "Bolsa", "Caja"</small>
             {% if form.presentacion.errors %}<div class="field-error">{{ form.presentacion.errors|striptags }}</div>{% endif %}
           </div>
 
@@ -91,15 +110,6 @@
             {% if form.caducidad.errors %}<div class="field-error">{{ form.caducidad.errors|striptags }}</div>{% endif %}
           </div>
 
-          <!-- Grupo Formato: “Formato:” + número + select sin etiqueta “Unidad” -->
-          <div class="form-row">
-            <label for="id_formato_cantidad">Formato:</label>
-            {{ form.formato_cantidad }}
-            {{ form.formato_unidad }}
-            {% if form.formato_cantidad.errors %}<div class="field-error">{{ form.formato_cantidad.errors|striptags }}</div>{% endif %}
-            {% if form.formato_unidad.errors %}<div class="field-error">{{ form.formato_unidad.errors|striptags }}</div>{% endif %}
-            {{ form.formato }} <!-- oculto, se completa en save() -->
-          </div>
         </div>
       </section>
 

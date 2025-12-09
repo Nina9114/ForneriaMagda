@@ -24,7 +24,8 @@
 /* --- Título dentro de la Tarjeta de Edición --- */
 /* Para los títulos como "Información General" o "Detalles de Stock". */
 .edit-section-title {
-    color: var(--gold);      /* Color de texto dorado, tomado de las variables del tema. */
+    color: #e0e0e0;      /* Color claro para mejor visibilidad. */
+    font-weight: 600;    /* Texto semi-negrita para mayor contraste. */
     margin-bottom: 8px;      /* Un pequeño espacio debajo del título para separarlo del contenido. */
 }
 

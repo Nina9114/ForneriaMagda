@@ -102,13 +102,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Confirmar venta en el modal ---
     document.getElementById('btn-confirmar-venta-final').addEventListener('click', procesarVenta);
     
-    // --- Toggle de IVA ---
-    const toggleIva = document.getElementById('toggle-iva');
-    if (toggleIva) {
-        toggleIva.addEventListener('change', function() {
-            actualizarTotales();
-        });
-    }
+    // --- IVA siempre incluido (precio ya incluye IVA) ---
+    // El toggle de IVA fue eliminado porque el precio ya incluye IVA
 });
 
 
@@ -183,20 +178,71 @@ function agregarAlCarrito(productoId) {
     }
     
     // Extraer información del producto
-    const producto = {
-        producto_id: parseInt(productoId),
-        nombre: card.dataset.productoNombre,
-        precio: parseFloat(card.dataset.productoPrecio),
-        stock: parseInt(card.dataset.productoStock),
-        cantidad: 1,
-        descuento: 0
+    const unidadVenta = card.dataset.productoUnidadVenta || 'unidad';
+    const stockDisponible = parseFloat(card.dataset.productoStock) || 0;
+    const precioPorUnidad = parseFloat(card.dataset.productoPrecioOriginal) || parseFloat(card.dataset.productoPrecio) || 0;
+    
+    // Obtener nombres de unidades para mostrar
+    const nombresUnidades = {
+        'unidad': 'unidad(es)',
+        'kg': 'kilo(s)',
+        'g': 'gramo(s)',
+        'l': 'litro(s)',
+        'ml': 'mililitro(s)'
     };
+    const nombreUnidad = nombresUnidades[unidadVenta] || unidadVenta;
     
     // Validar stock
-    if (producto.stock <= 0) {
+    if (stockDisponible <= 0) {
         mostrarAlerta('error', 'Este producto no tiene stock disponible');
         return;
     }
+    
+    // Determinar cantidad inicial según unidad de venta
+    let cantidadInicial = 1;
+    let cantidadIngresada = null;
+    
+    // Si no es unidad, pedir cantidad al usuario
+    if (unidadVenta !== 'unidad') {
+        const mensaje = `Ingrese la cantidad en ${nombreUnidad}:\n\n` +
+                       `Stock disponible: ${stockDisponible.toFixed(3)} ${nombreUnidad}\n` +
+                       `Precio: $${precioPorUnidad.toFixed(0)} por ${nombreUnidad}\n\n` +
+                       `Ejemplo: 1.5, 0.75, 2.25`;
+        
+        const input = prompt(mensaje);
+        
+        if (input === null) {
+            // Usuario canceló
+            return;
+        }
+        
+        cantidadIngresada = parseFloat(input);
+        
+        // Validar entrada
+        if (isNaN(cantidadIngresada) || cantidadIngresada <= 0) {
+            mostrarAlerta('error', 'Debe ingresar una cantidad válida mayor a 0');
+            return;
+        }
+        
+        // Validar que no exceda stock
+        if (cantidadIngresada > stockDisponible) {
+            mostrarAlerta('error', `Solo hay ${stockDisponible.toFixed(3)} ${nombreUnidad} disponibles`);
+            return;
+        }
+        
+        cantidadInicial = cantidadIngresada;
+    }
+    
+    // Crear objeto producto
+    const producto = {
+        producto_id: parseInt(productoId),
+        nombre: card.dataset.productoNombre,
+        precio: precioPorUnidad,
+        stock: stockDisponible,
+        unidad_venta: unidadVenta,
+        cantidad: cantidadInicial,
+        descuento: 0
+    };
     
     // Verificar si ya está en el carrito
     const indiceExistente = carrito.findIndex(item => item.producto_id === producto.producto_id);
@@ -204,18 +250,19 @@ function agregarAlCarrito(productoId) {
     if (indiceExistente >= 0) {
         // Ya está en el carrito
         const cantidadActual = carrito[indiceExistente].cantidad;
+        const nuevaCantidadTotal = cantidadActual + cantidadInicial;
         
-        if (cantidadActual >= producto.stock) {
-            mostrarAlerta('warning', `Solo hay ${producto.stock} unidades disponibles de ${producto.nombre}`);
+        if (nuevaCantidadTotal > producto.stock) {
+            mostrarAlerta('warning', `Solo hay ${producto.stock.toFixed(3)} ${nombreUnidad} disponibles de ${producto.nombre}`);
             return;
         }
         
-        carrito[indiceExistente].cantidad += 1;
-        mostrarAlerta('success', `Cantidad de ${producto.nombre} aumentada a ${carrito[indiceExistente].cantidad}`);
+        carrito[indiceExistente].cantidad = nuevaCantidadTotal;
+        mostrarAlerta('success', `Cantidad de ${producto.nombre} aumentada a ${nuevaCantidadTotal.toFixed(3)} ${nombreUnidad}`);
     } else {
         // Agregar nuevo producto
         carrito.push(producto);
-        mostrarAlerta('success', `${producto.nombre} agregado al carrito`);
+        mostrarAlerta('success', `${producto.nombre} agregado al carrito (${cantidadInicial.toFixed(3)} ${nombreUnidad})`);
     }
     
     // Actualizar visualización
@@ -249,21 +296,71 @@ function agregarProductoAlCarrito(evento) {
     // Buscamos la tarjeta completa del producto (el div padre)
     const card = document.querySelector(`.producto-card[data-producto-id="${productoId}"]`);
     
+    // Extraer información del producto
+    const unidadVenta = card.dataset.productoUnidadVenta || 'unidad';
+    const stockDisponible = parseFloat(card.dataset.productoStock) || 0;
+    const precioPorUnidad = parseFloat(card.dataset.productoPrecioOriginal) || parseFloat(card.dataset.productoPrecio) || 0;
+    
+    // --- Validación 1: Verificar que haya stock ---
+    if (stockDisponible <= 0) {
+        mostrarAlerta('error', 'Este producto no tiene stock disponible');
+        return;  // Salir de la función, no agregar al carrito
+    }
+    
+    // Nombres de unidades para mostrar
+    const nombresUnidades = {
+        'unidad': 'unidad(es)',
+        'kg': 'kilo(s)',
+        'g': 'gramo(s)',
+        'l': 'litro(s)',
+        'ml': 'mililitro(s)'
+    };
+    const nombreUnidad = nombresUnidades[unidadVenta] || unidadVenta;
+    
+    // Determinar cantidad inicial según unidad de venta
+    let cantidadInicial = 1;
+    
+    // Si no es unidad, pedir cantidad al usuario
+    if (unidadVenta !== 'unidad') {
+        const mensaje = `Ingrese la cantidad en ${nombreUnidad}:\n\n` +
+                       `Stock disponible: ${stockDisponible.toFixed(3)} ${nombreUnidad}\n` +
+                       `Precio: $${precioPorUnidad.toFixed(0)} por ${nombreUnidad}\n\n` +
+                       `Ejemplo: 1.5, 0.75, 2.25`;
+        
+        const input = prompt(mensaje);
+        
+        if (input === null) {
+            // Usuario canceló
+            return;
+        }
+        
+        const cantidadIngresada = parseFloat(input);
+        
+        // Validar entrada
+        if (isNaN(cantidadIngresada) || cantidadIngresada <= 0) {
+            mostrarAlerta('error', 'Debe ingresar una cantidad válida mayor a 0');
+            return;
+        }
+        
+        // Validar que no exceda stock
+        if (cantidadIngresada > stockDisponible) {
+            mostrarAlerta('error', `Solo hay ${stockDisponible.toFixed(3)} ${nombreUnidad} disponibles`);
+            return;
+        }
+        
+        cantidadInicial = parseFloat(cantidadIngresada.toFixed(3));
+    }
+    
     // Extraemos toda la información del producto desde los data-attributes
     const producto = {
         producto_id: parseInt(productoId),
         nombre: card.dataset.productoNombre,
-        precio: parseFloat(card.dataset.productoPrecio),
-        stock: parseInt(card.dataset.productoStock),
-        cantidad: 1,  // Por defecto agregamos 1 unidad
+        precio: precioPorUnidad,
+        stock: stockDisponible,
+        unidad_venta: unidadVenta,
+        cantidad: cantidadInicial,
         descuento: 0  // Sin descuento por defecto
     };
-    
-    // --- Validación 1: Verificar que haya stock ---
-    if (producto.stock <= 0) {
-        mostrarAlerta('error', 'Este producto no tiene stock disponible');
-        return;  // Salir de la función, no agregar al carrito
-    }
     
     // --- Verificar si el producto ya está en el carrito ---
     const indiceExistente = carrito.findIndex(item => item.producto_id === producto.producto_id);
@@ -343,16 +440,38 @@ function renderizarCarrito() {
     // Contador de items totales (sumando las cantidades)
     let totalItems = 0;
     
+    // Nombres de unidades para mostrar
+    const nombresUnidades = {
+        'unidad': 'unidad(es)',
+        'kg': 'kilo(s)',
+        'g': 'gramo(s)',
+        'l': 'litro(s)',
+        'ml': 'mililitro(s)'
+    };
+    
     // --- Recorrer cada producto del carrito ---
     carrito.forEach((item, indice) => {
         // Sumar la cantidad de este item al total
         totalItems += item.cantidad;
+        
+        // Obtener unidad de venta (por defecto 'unidad')
+        const unidadVenta = item.unidad_venta || 'unidad';
+        const nombreUnidad = nombresUnidades[unidadVenta] || unidadVenta;
+        const esDecimal = unidadVenta !== 'unidad';
         
         // Calcular el precio con descuento
         const precioConDescuento = item.precio * (1 - item.descuento / 100);
         
         // Calcular el subtotal de este item (precio × cantidad)
         const subtotalItem = precioConDescuento * item.cantidad;
+        
+        // Formatear cantidad según unidad
+        const cantidadFormateada = esDecimal ? parseFloat(item.cantidad).toFixed(3) : parseInt(item.cantidad);
+        const stockFormateado = esDecimal ? parseFloat(item.stock).toFixed(3) : parseInt(item.stock);
+        
+        // Determinar step y min para el input
+        const stepValue = esDecimal ? '0.001' : '1';
+        const minValue = esDecimal ? '0.001' : '1';
         
         // Crear el HTML para este item del carrito
         const itemHTML = `
@@ -375,15 +494,15 @@ function renderizarCarrito() {
                     <div class="mb-2">
                         ${item.descuento > 0 ? `
                             <small class="text-muted text-decoration-line-through">
-                                $${formatearPrecio(item.precio)}
+                                $${formatearPrecio(item.precio)} / ${nombreUnidad}
                             </small>
                             <span class="badge bg-success ms-1">${item.descuento}% OFF</span>
                             <div class="text-warning fw-bold">
-                                $${formatearPrecio(precioConDescuento)} c/u
+                                $${formatearPrecio(precioConDescuento)} / ${nombreUnidad}
                             </div>
                         ` : `
                             <small class="text-muted">
-                                $${formatearPrecio(item.precio)} c/u
+                                $${formatearPrecio(item.precio)} / ${nombreUnidad}
                             </small>
                         `}
                     </div>
@@ -394,6 +513,7 @@ function renderizarCarrito() {
                             <!-- Botón para disminuir cantidad -->
                             <button class="btn btn-outline-warning btn-disminuir" 
                                     data-index="${indice}"
+                                    data-step="${stepValue}"
                                     type="button"
                                     title="Disminuir cantidad">
                                 <i class="bi bi-dash"></i>
@@ -403,14 +523,17 @@ function renderizarCarrito() {
                             <input type="number" 
                                    class="form-control form-control-sm text-center input-cantidad" 
                                    data-index="${indice}"
-                                   value="${item.cantidad}" 
-                                   min="1" 
+                                   data-unidad="${unidadVenta}"
+                                   value="${cantidadFormateada}" 
+                                   min="${minValue}" 
                                    max="${item.stock}"
-                                   style="width: 60px;">
+                                   step="${stepValue}"
+                                   style="width: ${esDecimal ? '80px' : '60px'};">
                             
                             <!-- Botón para aumentar cantidad -->
                             <button class="btn btn-outline-warning btn-aumentar" 
                                     data-index="${indice}"
+                                    data-step="${stepValue}"
                                     type="button"
                                     title="Aumentar cantidad">
                                 <i class="bi bi-plus"></i>
@@ -422,13 +545,14 @@ function renderizarCarrito() {
                             <div class="fw-bold text-warning" style="font-size: 1.1rem;">
                                 $${formatearPrecio(subtotalItem)}
                             </div>
+                            <small class="text-muted">${cantidadFormateada} ${nombreUnidad}</small>
                         </div>
                     </div>
                     
                     <!-- Indicadores adicionales -->
                     <div class="mt-2 d-flex justify-content-between align-items-center">
                         <small class="text-muted">
-                            <i class="bi bi-box"></i> Stock: ${item.stock}
+                            <i class="bi bi-box"></i> Stock: ${stockFormateado} ${nombreUnidad}
                         </small>
                         <!-- Botón para aplicar descuento individual -->
                         <button class="btn btn-sm btn-outline-warning btn-descuento-item"
@@ -493,7 +617,9 @@ function asignarEventosCarrito() {
     document.querySelectorAll('.input-cantidad').forEach(input => {
         input.addEventListener('change', function() {
             const indice = parseInt(this.dataset.index);
-            const nuevaCantidad = parseInt(this.value);
+            const unidad = this.dataset.unidad || 'unidad';
+            // Usar parseFloat para permitir decimales
+            const nuevaCantidad = unidad !== 'unidad' ? parseFloat(this.value) : parseInt(this.value);
             establecerCantidad(indice, nuevaCantidad);
         });
     });
@@ -521,12 +647,17 @@ function cambiarCantidad(indice, cambio) {
     // Obtener el item del carrito
     const item = carrito[indice];
     
+    // Determinar el step según unidad de venta
+    const unidadVenta = item.unidad_venta || 'unidad';
+    const step = unidadVenta !== 'unidad' ? 0.1 : 1;  // Para decimales, usar 0.1; para unidades, usar 1
+    
     // Calcular la nueva cantidad
-    const nuevaCantidad = item.cantidad + cambio;
+    const nuevaCantidad = parseFloat((item.cantidad + (cambio * step)).toFixed(3));
     
     // Validar que la cantidad esté en el rango válido
-    if (nuevaCantidad < 1) {
-        // Si intentan poner menos de 1, preguntar si desea quitar
+    const minValue = unidadVenta !== 'unidad' ? 0.001 : 1;
+    if (nuevaCantidad < minValue) {
+        // Si intentan poner menos del mínimo, preguntar si desea quitar
         if (confirm(`¿Desea quitar "${item.nombre}" del carrito?`)) {
             quitarDelCarrito(indice);
         }
@@ -535,12 +666,21 @@ function cambiarCantidad(indice, cambio) {
     
     if (nuevaCantidad > item.stock) {
         // No hay suficiente stock
-        mostrarAlerta('warning', `Solo hay ${item.stock} unidades disponibles de ${item.nombre}`);
+        const nombresUnidades = {
+            'unidad': 'unidad(es)',
+            'kg': 'kilo(s)',
+            'g': 'gramo(s)',
+            'l': 'litro(s)',
+            'ml': 'mililitro(s)'
+        };
+        const nombreUnidad = nombresUnidades[unidadVenta] || unidadVenta;
+        const stockFormateado = unidadVenta !== 'unidad' ? parseFloat(item.stock).toFixed(3) : parseInt(item.stock);
+        mostrarAlerta('warning', `Solo hay ${stockFormateado} ${nombreUnidad} disponibles de ${item.nombre}`);
         return;
     }
     
-    // Actualizar la cantidad
-    item.cantidad = nuevaCantidad;
+    // Actualizar la cantidad (redondear a 3 decimales si es decimal)
+    item.cantidad = unidadVenta !== 'unidad' ? parseFloat(nuevaCantidad.toFixed(3)) : parseInt(nuevaCantidad);
     
     // Re-renderizar el carrito
     renderizarCarrito();
@@ -686,28 +826,33 @@ function aplicarDescuentoIndividual() {
 // - Vuelto (si el cliente pagó más)
 
 function actualizarTotales() {
-    // --- Calcular Subtotal ---
+    // --- IMPORTANTE: El precio del producto YA INCLUYE IVA (precio final al consumidor) ---
+    // Por lo tanto, debemos calcular:
+    // 1. Total con IVA incluido (precio mostrado × cantidad)
+    // 2. Subtotal sin IVA (total / 1.19)
+    // 3. IVA (subtotal sin IVA × 0.19)
+    // 4. Total final = precio original (con IVA incluido)
+    
+    // --- Calcular Total con IVA Incluido ---
     // Suma del precio × cantidad de cada producto (con sus descuentos individuales)
-    let subtotal = 0;
+    let totalConIvaIncluido = 0;
     
     carrito.forEach(item => {
         // Aplicar descuento individual al precio
         const precioConDescuento = item.precio * (1 - item.descuento / 100);
-        subtotal += precioConDescuento * item.cantidad;
+        totalConIvaIncluido += precioConDescuento * item.cantidad;
     });
     
-    // --- Verificar si el IVA está activado ---
-    const toggleIva = document.getElementById('toggle-iva');
-    const incluirIva = toggleIva ? toggleIva.checked : true;
-    
-    // --- Calcular IVA (19%) solo si está activado ---
-    const iva = incluirIva ? subtotal * 0.19 : 0;
-    
-    // --- Total Final ---
-    const total = subtotal + iva;
+    // --- El precio ya incluye IVA, entonces:
+    // Subtotal sin IVA = Total con IVA / 1.19
+    const subtotalSinIva = totalConIvaIncluido / 1.19;
+    // IVA = Subtotal sin IVA × 0.19
+    const iva = subtotalSinIva * 0.19;
+    // Total final = precio original (con IVA incluido)
+    const total = totalConIvaIncluido;
     
     // --- Actualizar en el HTML ---
-    document.getElementById('subtotal').textContent = formatearPrecio(subtotal);
+    document.getElementById('subtotal').textContent = formatearPrecio(subtotalSinIva);
     document.getElementById('iva').textContent = formatearPrecio(iva);
     document.getElementById('total').textContent = formatearPrecio(total);
     
@@ -716,7 +861,9 @@ function actualizarTotales() {
     const montoPagadoInput = document.getElementById('monto-pagado-input');
     if (montoPagadoInput) {
         const montoPagado = parseFloat(montoPagadoInput.value) || 0;
-        const vuelto = montoPagado - total;
+        // Total con IVA incluido (precio original)
+        const totalFinal = totalConIvaIncluido;
+        const vuelto = montoPagado - totalFinal;
         
         const vueltoElemento = document.getElementById('vuelto');
         if (vueltoElemento) {
@@ -806,18 +953,23 @@ function abrirModalConfirmacion() {
         return;
     }
     
-    // Calcular totales actuales
-    let subtotal = 0;
+    // Calcular totales actuales (precio ya incluye IVA)
+    let totalConIvaIncluido = 0;
     carrito.forEach(item => {
         const precioConDescuento = item.precio * (1 - item.descuento / 100);
-        subtotal += precioConDescuento * item.cantidad;
+        totalConIvaIncluido += precioConDescuento * item.cantidad;
     });
     
-    const iva = subtotal * 0.19;
-    const total = subtotal + iva;
+    // El precio ya incluye IVA, entonces:
+    // Subtotal sin IVA = Total con IVA / 1.19
+    const subtotalSinIva = totalConIvaIncluido / 1.19;
+    // IVA = Subtotal sin IVA × 0.19
+    const iva = subtotalSinIva * 0.19;
+    // Total final = precio original (con IVA incluido)
+    const total = totalConIvaIncluido;
     
     // Mostrar totales en el modal
-    document.getElementById('modal-subtotal').textContent = formatearPrecio(subtotal);
+    document.getElementById('modal-subtotal').textContent = formatearPrecio(subtotalSinIva);
     document.getElementById('modal-iva').textContent = formatearPrecio(iva);
     document.getElementById('modal-total').textContent = formatearPrecio(total);
     
@@ -891,14 +1043,15 @@ function procesarVenta() {
         return;
     }
     
-    // Calcular total
-    let subtotal = 0;
+    // Calcular total (precio ya incluye IVA)
+    let totalConIvaIncluido = 0;
     carrito.forEach(item => {
         const precioConDescuento = item.precio * (1 - item.descuento / 100);
-        subtotal += precioConDescuento * item.cantidad;
+        totalConIvaIncluido += precioConDescuento * item.cantidad;
     });
-    const iva = subtotal * 0.19;
-    const total = subtotal + iva;
+    
+    // Total = precio original (con IVA incluido)
+    const total = totalConIvaIncluido;
     
     // Validar que el pago sea suficiente
     if (montoPagado < total) {
@@ -1000,14 +1153,20 @@ function generarComprobante(ventaId, folio, datosVenta) {
     const selectCliente = document.getElementById('select-cliente');
     const nombreCliente = selectCliente.options[selectCliente.selectedIndex].text;
     
-    // Calcular totales
-    let subtotal = 0;
+    // Calcular totales (precio ya incluye IVA)
+    let totalConIvaIncluido = 0;
     carrito.forEach(item => {
         const precioConDescuento = item.precio * (1 - item.descuento / 100);
-        subtotal += precioConDescuento * item.cantidad;
+        totalConIvaIncluido += precioConDescuento * item.cantidad;
     });
-    const iva = subtotal * 0.19;
-    const total = subtotal + iva;
+    
+    // El precio ya incluye IVA, entonces:
+    // Subtotal sin IVA = Total con IVA / 1.19
+    const subtotalSinIva = totalConIvaIncluido / 1.19;
+    // IVA = Subtotal sin IVA × 0.19
+    const iva = subtotalSinIva * 0.19;
+    // Total final = precio original (con IVA incluido)
+    const total = totalConIvaIncluido;
     
     // Construir el texto del comprobante
     let comprobante = `
@@ -1051,13 +1210,13 @@ PRODUCTOS:
     // Agregar totales
     comprobante += `
 ───────────────────────────────────────────────
-  SUBTOTAL:        $${formatearPrecio(subtotal)}
-  IVA (19%):       $${formatearPrecio(iva)}
+  SubTotal (sin IVA):        $${formatearPrecio(Math.round(subtotalSinIva))}
+  IVA (19%):                 $${formatearPrecio(Math.round(iva))}
 ───────────────────────────────────────────────
-  TOTAL:           $${formatearPrecio(total)}
+  TOTAL (con IVA):           $${formatearPrecio(Math.round(total))}
 ───────────────────────────────────────────────
-  PAGO:            $${formatearPrecio(datosVenta.monto_pagado)}
-  VUELTO:          $${formatearPrecio(vuelto)}
+  Pago recibido:             $${formatearPrecio(datosVenta.monto_pagado)}
+  Vuelto:                    $${formatearPrecio(vuelto)}
 ═══════════════════════════════════════════════
 
           ¡Gracias por su compra!

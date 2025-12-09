@@ -10,6 +10,11 @@
             <h1 class="dashboard-main-title">Detalle de Factura: {{ factura.numero_factura }}</h1>
             <div class="header-actions">
                 <a href="{% url 'factura_proveedor_editar' factura.id %}" class="btn btn-warning">Editar</a>
+                {% if factura.fecha_recepcion %}
+                <button type="button" class="btn btn-info" onclick="quitarRecepcion()" title="Quitar fecha de recepción para poder agregar productos">
+                    <i class="bi bi-x-circle"></i> Quitar Recepción
+                </button>
+                {% endif %}
                 <a href="{% url 'facturas_proveedores_list' %}" class="btn btn-secondary">Volver</a>
             </div>
         </header>
@@ -46,12 +51,10 @@
                                 {% endif %}
                             </p>
                             <p><strong>Estado de Recepción:</strong> 
-                                {% if factura.estado_recepcion == 'pendiente' %}
-                                    <span class="badge bg-warning">Pendiente</span>
-                                {% elif factura.estado_recepcion == 'recibida' %}
-                                    <span class="badge bg-success">Recibida</span>
+                                {% if factura.fecha_recepcion %}
+                                    <span class="badge bg-success">Recibida el {{ factura.fecha_recepcion|date:"d/m/Y" }}</span>
                                 {% else %}
-                                    <span class="badge bg-danger">Cancelada</span>
+                                    <span class="badge bg-warning">Pendiente</span>
                                 {% endif %}
                             </p>
                             {% if factura.observaciones %}
@@ -63,12 +66,13 @@
             </div>
             
             <!-- Agregar producto (solo si no está recibida) -->
-            {% if factura.estado_recepcion != 'recibida' %}
+            {% if not factura.fecha_recepcion %}
             <div class="card mb-4">
                 <div class="card-header">
                     <h3>Agregar Producto</h3>
                 </div>
                 <div class="card-body">
+                    {% if productos %}
                     <form id="formAgregarProducto" class="row g-3">
                         {% csrf_token %}
                         <div class="col-md-4">
@@ -76,8 +80,8 @@
                             <select name="producto_id" id="producto_id" class="form-select" required>
                                 <option value="">Seleccione un producto</option>
                                 {% for producto in productos %}
-                                <option value="{{ producto.id }}" data-precio="{{ producto.precio }}">
-                                    {{ producto.nombre }} - ${{ producto.precio|floatformat:0 }}
+                                <option value="{{ producto.id }}" data-precio="{{ producto.precio_por_unidad_venta|default:producto.precio }}">
+                                    {{ producto.nombre }} - ${{ producto.precio_por_unidad_venta|default:producto.precio|floatformat:0 }}
                                 </option>
                                 {% endfor %}
                             </select>
@@ -99,7 +103,18 @@
                             <button type="submit" class="btn btn-primary w-100">Agregar</button>
                         </div>
                     </form>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <strong>⚠️ No hay productos disponibles</strong>
+                        <p class="mb-0">No hay productos activos en el inventario. Debes crear productos primero desde el módulo de <a href="{% url 'inventario' %}">Inventario</a> (botón "Agregar Producto") antes de poder agregarlos a la factura.</p>
+                    </div>
+                    {% endif %}
                 </div>
+            </div>
+            {% else %}
+            <div class="alert alert-info mb-4">
+                <strong>ℹ️ Factura ya recibida</strong>
+                <p class="mb-0">Esta factura ya fue recibida el {{ factura.fecha_recepcion|date:"d/m/Y" }}. No se pueden agregar más productos.</p>
             </div>
             {% endif %}
             
@@ -107,7 +122,7 @@
             <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3>Productos en la Factura</h3>
-                    {% if factura.estado_recepcion != 'recibida' %}
+                    {% if not factura.fecha_recepcion %}
                     <button id="btnRecibirFactura" class="btn btn-success">
                         <span>✓</span> Recibir Factura y Actualizar Stock
                     </button>
@@ -124,7 +139,7 @@
                                     <th>Precio Unitario</th>
                                     <th>Descuento %</th>
                                     <th>Subtotal</th>
-                                    {% if factura.estado_recepcion != 'recibida' %}
+                                    {% if not factura.fecha_recepcion %}
                                     <th>Acciones</th>
                                     {% endif %}
                                 </tr>
@@ -137,7 +152,7 @@
                                     <td>${{ detalle.precio_unitario|floatformat:0 }}</td>
                                     <td>{{ detalle.descuento_pct|floatformat:2 }}%</td>
                                     <td>${{ detalle.subtotal|floatformat:0 }}</td>
-                                    {% if factura.estado_recepcion != 'recibida' %}
+                                    {% if not factura.fecha_recepcion %}
                                     <td>
                                         <button class="btn btn-sm btn-danger" onclick="eliminarDetalle({{ detalle.id }})">Eliminar</button>
                                     </td>
@@ -209,7 +224,7 @@
                         <div class="col-md-6 offset-md-6">
                             <table class="table">
                                 <tr>
-                                    <td><strong>Subtotal sin IVA:</strong></td>
+                                    <td><strong>Subtotal sin IVA (Neto):</strong></td>
                                     <td class="text-end">${{ factura.subtotal_sin_iva|floatformat:0 }}</td>
                                 </tr>
                                 <tr>
@@ -351,6 +366,38 @@ document.getElementById('btnRecibirFactura')?.addEventListener('click', async fu
         this.innerHTML = '<span>✓</span> Recibir Factura y Actualizar Stock';
     }
 });
+
+// Quitar recepción de factura
+async function quitarRecepcion() {
+    if (!confirm('⚠️ ADVERTENCIA: ¿Está seguro que desea quitar la fecha de recepción de esta factura?\n\n' +
+               'Esto REVERTIRÁ el stock de todos los productos de esta factura.\n' +
+               'Si ya vendiste algunos productos, el stock puede quedar incorrecto.\n\n' +
+               '¿Desea continuar?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/factura/${facturaId}/quitar-recepcion/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.mensaje);
+            location.reload();
+        } else {
+            alert('Error: ' + data.mensaje);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al quitar recepción. Intenta editar la factura manualmente.');
+    }
+}
 </script>
 {% endblock %}
 

@@ -162,6 +162,7 @@ def mover_merma_masivo(request):
         # Parsear el JSON del body de la petición
         data = json.loads(request.body)
         ids_productos = data.get('ids', [])
+        motivo_merma = data.get('motivo_merma', '').strip()
         
         # Validar que se enviaron IDs
         if not ids_productos:
@@ -170,18 +171,55 @@ def mover_merma_masivo(request):
                 'message': 'No se seleccionaron productos'
             }, status=400)
         
+        # Validar que se proporcionó un motivo
+        if not motivo_merma:
+            return JsonResponse({
+                'success': False,
+                'message': 'Debe proporcionar un motivo para mover el producto a merma'
+            }, status=400)
+        
+        # Importar timezone para fecha_merma
+        from django.utils import timezone
+        
+        # Importar Alertas para resolver alertas automáticamente
+        from ventas.models import Alertas
+        
         # Actualizar el estado de los productos seleccionados
         productos_actualizados = Productos.objects.filter(
             id__in=ids_productos,
             eliminado__isnull=True  # Solo productos no eliminados
-        ).update(
-            estado_merma='vencido'  # Cambiar estado a vencido
         )
         
+        # NUEVA LÓGICA: Limpiar "contenido" del producto (cantidad, caducidad, elaboración)
+        # El SKU permanece pero sin stock ni fechas (ese lote ya no existe)
+        cantidad_actualizados = 0
+        for producto in productos_actualizados:
+            # Guardar la cantidad que se va a merma antes de ponerla en 0
+            producto.cantidad_merma = producto.cantidad if producto.cantidad > 0 else 0
+            producto.cantidad = 0  # Reducir cantidad a 0
+            producto.caducidad = None  # Limpiar caducidad (ese lote ya no existe)
+            producto.elaboracion = None  # Limpiar elaboración (ese lote ya no existe)
+            producto.estado_merma = 'en_merma'  # Estado especial para productos en merma
+            producto.motivo_merma = motivo_merma  # Registrar motivo
+            producto.fecha_merma = timezone.now()  # Registrar fecha
+            producto.save()
+            cantidad_actualizados += 1
+        
+        # Resolver automáticamente todas las alertas activas de estos productos
+        # ya que están en merma y no necesitan alertas
+        alertas_resueltas = Alertas.objects.filter(
+            productos_id__in=ids_productos,
+            estado='activa'
+        ).update(estado='resuelta')
+        
         # Respuesta exitosa
+        mensaje = f'Se movieron {cantidad_actualizados} producto(s) a merma'
+        if alertas_resueltas > 0:
+            mensaje += f' y se resolvieron {alertas_resueltas} alerta(s) automáticamente'
+        
         return JsonResponse({
             'success': True,
-            'message': f'Se movieron {productos_actualizados} producto(s) a merma'
+            'message': mensaje
         })
         
     except json.JSONDecodeError:
@@ -194,6 +232,84 @@ def mover_merma_masivo(request):
         return JsonResponse({
             'success': False,
             'message': f'Error al mover productos a merma: {str(e)}'
+        }, status=500)
+
+
+# ================================================================
+# =            ACCIÓN: ACTIVAR/DESACTIVAR PRODUCTOS             =
+# ================================================================
+
+@login_required
+@require_POST
+def activar_desactivar_masivo(request):
+    """
+    Activa o desactiva múltiples productos.
+    
+    Si un producto está activo, lo desactiva (estado_merma='inactivo').
+    Si un producto está inactivo, lo activa (estado_merma='activo').
+    
+    Args:
+        request: HttpRequest con JSON body conteniendo {'ids': [1, 2, 3, ...]}
+    
+    Returns:
+        JsonResponse con el resultado de la operación
+    """
+    try:
+        # Parsear el JSON del body de la petición
+        data = json.loads(request.body)
+        ids_productos = data.get('ids', [])
+        
+        # Validar que se enviaron IDs
+        if not ids_productos:
+            return JsonResponse({
+                'success': False,
+                'message': 'No se seleccionaron productos'
+            }, status=400)
+        
+        # Obtener los productos seleccionados
+        productos = Productos.objects.filter(
+            id__in=ids_productos,
+            eliminado__isnull=True  # Solo productos no eliminados
+        )
+        
+        activados = 0
+        desactivados = 0
+        
+        # Cambiar el estado de cada producto
+        for producto in productos:
+            if producto.estado_merma == 'activo':
+                producto.estado_merma = 'inactivo'
+                producto.save()
+                desactivados += 1
+            elif producto.estado_merma == 'inactivo':
+                producto.estado_merma = 'activo'
+                producto.save()
+                activados += 1
+        
+        # Construir mensaje
+        mensaje_parts = []
+        if activados > 0:
+            mensaje_parts.append(f'{activados} producto(s) activado(s)')
+        if desactivados > 0:
+            mensaje_parts.append(f'{desactivados} producto(s) desactivado(s)')
+        
+        mensaje = ' y '.join(mensaje_parts)
+        
+        return JsonResponse({
+            'success': True,
+            'message': mensaje
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Error al procesar los datos enviados'
+        }, status=400)
+    
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error al cambiar estado de productos: {str(e)}'
         }, status=500)
 
 

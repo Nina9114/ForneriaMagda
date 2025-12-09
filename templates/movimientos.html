@@ -81,6 +81,7 @@
                                 <th>Producto</th>
                                 <th>Tipo</th>
                                 <th>Cantidad</th>
+                                <th>Origen/Detalle</th>
                             </tr>
                         </thead>
                         
@@ -120,11 +121,57 @@
                                 <td>
                                     <strong>{{ mov.cantidad }}</strong> unidades
                                 </td>
+                                
+                                <!-- Columna: Origen/Detalle del movimiento -->
+                                <td>
+                                    {% if mov.origen or mov.tipo_referencia %}
+                                        <div class="movimiento-origen">
+                                            {% if mov.origen %}
+                                                <span class="badge bg-info">
+                                                    {% if mov.origen == 'compra' %}
+                                                        <i class="bi bi-cart-plus"></i> Compra
+                                                    {% elif mov.origen == 'venta' %}
+                                                        <i class="bi bi-cart-dash"></i> Venta
+                                                    {% elif mov.origen == 'ajuste' %}
+                                                        <i class="bi bi-sliders"></i> Ajuste
+                                                    {% elif mov.origen == 'merma' %}
+                                                        <i class="bi bi-exclamation-triangle"></i> Merma
+                                                    {% elif mov.origen == 'devolucion' %}
+                                                        <i class="bi bi-arrow-counterclockwise"></i> Devolución
+                                                    {% elif mov.origen == 'produccion' %}
+                                                        <i class="bi bi-bag-plus"></i> Producción
+                                                    {% else %}
+                                                        {{ mov.origen|title }}
+                                                    {% endif %}
+                                                </span>
+                                            {% endif %}
+                                            {% if mov.tipo_referencia and mov.referencia_id %}
+                                                <small class="text-muted d-block mt-1">
+                                                    {% if mov.tipo_referencia == 'factura_proveedor' %}
+                                                        Factura #{{ mov.referencia_id }}
+                                                    {% elif mov.tipo_referencia == 'venta' %}
+                                                        Venta #{{ mov.referencia_id }}
+                                                    {% elif mov.tipo_referencia == 'ajuste' %}
+                                                        Ajuste #{{ mov.referencia_id }}
+                                                    {% elif mov.tipo_referencia == 'merma' %}
+                                                        Merma #{{ mov.referencia_id }}
+                                                    {% elif mov.tipo_referencia == 'lote' %}
+                                                        Lote #{{ mov.referencia_id }}
+                                                    {% else %}
+                                                        {{ mov.tipo_referencia|title }} #{{ mov.referencia_id }}
+                                                    {% endif %}
+                                                </small>
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
                             </tr>
                             {% empty %}
                             <!-- Mensaje cuando no hay movimientos -->
                             <tr>
-                                <td colspan="4" class="movimientos-vacio">
+                                <td colspan="5" class="movimientos-vacio">
                                     <i class="bi bi-inbox"></i>
                                     <p>No hay movimientos registrados</p>
                                     {% if tipo_filtro %}
@@ -140,4 +187,39 @@
         </main>
     </div>
 </div>
+
+<style>
+.movimiento-origen {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.movimiento-origen .badge {
+    font-size: 0.85em;
+    padding: 5px 10px;
+    white-space: nowrap;
+}
+
+.movimiento-origen .text-muted {
+    font-size: 0.8em;
+    color: #d4af37 !important;
+    opacity: 0.8;
+}
+
+.movimiento-origen .text-muted:hover {
+    opacity: 1;
+}
+
+.badge.bg-info {
+    background-color: #0dcaf0 !important;
+    color: #000;
+}
+
+@media (max-width: 768px) {
+    .movimiento-origen {
+        font-size: 0.9em;
+    }
+}
+</style>
 {% endblock %}

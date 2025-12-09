@@ -70,10 +70,9 @@
                         </div>
                         <div class="col-md-2">
                             <select name="estado_recepcion" class="form-select">
-                                <option value="">Todos los estados</option>
-                                <option value="pendiente" {% if estado_recepcion_filter == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                                <option value="">Todas</option>
+                                <option value="pendiente" {% if estado_recepcion_filter == 'pendiente' %}selected{% endif %}>Pendiente (sin recibir)</option>
                                 <option value="recibida" {% if estado_recepcion_filter == 'recibida' %}selected{% endif %}>Recibida</option>
-                                <option value="cancelada" {% if estado_recepcion_filter == 'cancelada' %}selected{% endif %}>Cancelada</option>
                             </select>
                         </div>
                         <div class="col-md-2">
@@ -136,12 +135,10 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        {% if factura.estado_recepcion == 'pendiente' %}
-                                            <span class="badge bg-warning">Pendiente</span>
-                                        {% elif factura.estado_recepcion == 'recibida' %}
+                                        {% if factura.fecha_recepcion %}
                                             <span class="badge bg-success">Recibida</span>
                                         {% else %}
-                                            <span class="badge bg-danger">Cancelada</span>
+                                            <span class="badge bg-warning">Pendiente</span>
                                         {% endif %}
                                     </td>
                                     <td>

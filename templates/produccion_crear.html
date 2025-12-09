@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block body_class %}dark-gold-theme{% endblock %}
+
+{% block contenido %}
+<div class="dashboard-main-container">
+    <!-- Sidebar Reutilizable -->
+    {% include 'includes/sidebar.html' with active_page='produccion' %}
+
+    <div class="dashboard-content-wrapper">
+        <div class="form-container dark-gold-theme">
+            <div class="edit-header">
+                <h2>Registrar Producción Propia</h2>
+                <a href="{% url 'produccion_list' %}" class="btn btn-link back-link">
+                    <i class="bi bi-arrow-left"></i> Volver a Producción
+                </a>
+            </div>
+
+            {% if messages %}
+            <ul class="messages">
+                {% for message in messages %}
+                <li class="{{ message.tags }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            <div class="card">
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label for="{{ form.producto.id_for_label }}" class="form-label">
+                                    {{ form.producto.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.producto }}
+                                {% if form.producto.errors %}
+                                <div class="text-danger small">{{ form.producto.errors }}</div>
+                                {% endif %}
+                                {% if form.producto.help_text %}
+                                <small class="form-text text-muted">{{ form.producto.help_text }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.cantidad_inicial.id_for_label }}" class="form-label">
+                                    {{ form.cantidad_inicial.label }} <span class="text-danger">*</span>
+                                    <span id="unidad-producto" class="text-muted ms-2"></span>
+                                </label>
+                                {{ form.cantidad_inicial }}
+                                {% if form.cantidad_inicial.errors %}
+                                <div class="text-danger small">{{ form.cantidad_inicial.errors }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted" id="help-cantidad">
+                                    {{ form.cantidad_inicial.help_text }}
+                                    <span id="unidad-ayuda"></span>
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.numero_lote.id_for_label }}" class="form-label">
+                                    {{ form.numero_lote.label }}
+                                </label>
+                                {{ form.numero_lote }}
+                                {% if form.numero_lote.errors %}
+                                <div class="text-danger small">{{ form.numero_lote.errors }}</div>
+                                {% endif %}
+                                {% if form.numero_lote.help_text %}
+                                <small class="form-text text-muted">{{ form.numero_lote.help_text }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.fecha_elaboracion.id_for_label }}" class="form-label">
+                                    {{ form.fecha_elaboracion.label }}
+                                </label>
+                                {{ form.fecha_elaboracion }}
+                                {% if form.fecha_elaboracion.errors %}
+                                <div class="text-danger small">{{ form.fecha_elaboracion.errors }}</div>
+                                {% endif %}
+                                {% if form.fecha_elaboracion.help_text %}
+                                <small class="form-text text-muted">{{ form.fecha_elaboracion.help_text }}</small>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="{{ form.fecha_caducidad.id_for_label }}" class="form-label">
+                                    {{ form.fecha_caducidad.label }} <span class="text-danger">*</span>
+                                </label>
+                                {{ form.fecha_caducidad }}
+                                {% if form.fecha_caducidad.errors %}
+                                <div class="text-danger small">{{ form.fecha_caducidad.errors }}</div>
+                                {% endif %}
+                                {% if form.fecha_caducidad.help_text %}
+                                <small class="form-text text-muted">{{ form.fecha_caducidad.help_text }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> 
+                            <strong>Información:</strong> Al guardar, se creará un nuevo lote y se actualizará automáticamente 
+                            el stock del producto. El sistema aplicará FIFO (First In First Out) en las ventas.
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Registrar Producción
+                            </button>
+                            <a href="{% url 'produccion_list' %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

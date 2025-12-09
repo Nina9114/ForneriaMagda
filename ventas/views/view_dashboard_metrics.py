@@ -101,10 +101,10 @@ def stock_bajo_api(request):
         - productos: Lista de productos con stock bajo
     """
     try:
-        # Obtener productos activos (no eliminados, no en merma)
+        # Obtener productos activos (no eliminados, no en merma, no inactivos)
         productos = Productos.objects.filter(
             eliminado__isnull=True,
-            estado_merma='activo'
+            estado_merma='activo'  # Solo productos activos (excluye inactivos y en_merma)
         )
         
         logger.info(f'Productos activos encontrados: {productos.count()}')
@@ -147,8 +147,11 @@ def alertas_pendientes_api(request):
         - num_alertas: Número total de alertas activas
         - por_tipo: Desglose por tipo (roja, amarilla, verde)
     """
-    # Contar alertas activas
-    alertas_activas = Alertas.objects.filter(estado='activa')
+    # Contar alertas activas (solo de productos activos, no en merma, no inactivos)
+    alertas_activas = Alertas.objects.filter(
+        estado='activa',
+        productos__estado_merma='activo'  # Solo productos activos (excluye inactivos y en_merma)
+    )
     
     # Contar por tipo
     alertas_rojas = alertas_activas.filter(tipo_alerta='roja').count()

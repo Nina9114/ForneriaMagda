@@ -222,17 +222,8 @@ class FacturaProveedor(models.Model):
         ('pendiente', 'Pendiente'),     # Factura pendiente de pago
         ('pagado', 'Pagado'),           # Factura completamente pagada
         ('parcial', 'Pago Parcial'),    # Factura pagada parcialmente
+        ('atrasado', 'Atrasado'),       # Factura vencida sin pagar
         ('cancelado', 'Cancelado'),     # Factura cancelada/anulada
-    ]
-    
-    # ============================================================
-    # OPCIONES DE ESTADO DE RECEPCIÓN
-    # ============================================================
-    ESTADO_RECEPCION_CHOICES = [
-        ('pendiente', 'Pendiente'),     # Factura no recibida físicamente
-        ('recibida', 'Recibida'),       # Factura recibida completamente
-        ('parcial', 'Parcial'),         # Factura recibida parcialmente
-        ('cancelada', 'Cancelada'),     # Factura cancelada (no se recibirá)
     ]
     
     # ============================================================
@@ -256,7 +247,7 @@ class FacturaProveedor(models.Model):
     fecha_recepcion = models.DateField(
         blank=True,
         null=True,
-        help_text='Fecha en que se recibió la factura'
+        help_text='Fecha en que se recibió la factura (si es NULL, no se ha recibido)'
     )
     
     # ============================================================
@@ -289,32 +280,28 @@ class FacturaProveedor(models.Model):
         self.full_clean()
         super().save(*args, **kwargs)
     
-    estado_recepcion = models.CharField(
-        max_length=20,
-        choices=ESTADO_RECEPCION_CHOICES,
-        default='pendiente',
-        help_text='Estado de recepción física de la factura'
-    )
-    
     # ============================================================
     # TOTALES Y MONTOS
     # ============================================================
     # NOTA: Los nombres de campos coinciden con la estructura de la BD
+    # Estos campos son nullable porque se calculan automáticamente
     subtotal_sin_iva = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default=Decimal('0.00'),
+        blank=True,
+        null=True,
         validators=[MinValueValidator(Decimal('0.00'))],
-        help_text='Subtotal sin IVA',
+        help_text='Subtotal sin IVA (se calcula automáticamente)',
         db_column='subtotal_sin_iva'
     )
     
     total_iva = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default=Decimal('0.00'),
+        blank=True,
+        null=True,
         validators=[MinValueValidator(Decimal('0.00'))],
-        help_text='Total de IVA (19%)',
+        help_text='Total de IVA (19%) (se calcula automáticamente)',
         db_column='total_iva'
     )
     
@@ -561,8 +548,7 @@ class FacturaProveedor(models.Model):
         try:
             from .proveedores import PagoProveedor
             pagos = PagoProveedor.objects.filter(
-                factura_proveedor=self,
-                eliminado__isnull=True
+                factura_proveedor=self
             )
             return sum(pago.monto for pago in pagos)
         except:
@@ -585,14 +571,19 @@ class FacturaProveedor(models.Model):
         """
         total_pagado = self.calcular_total_pagado()
         
-        if total_pagado <= 0:
-            self.estado_pago = 'pendiente'
+        # Usar comparación con tolerancia para decimales
+        from decimal import Decimal
+        if total_pagado <= Decimal('0.00'):
+            nuevo_estado = 'pendiente'
         elif total_pagado >= self.total_con_iva:
-            self.estado_pago = 'pagado'
+            nuevo_estado = 'pagado'
         else:
-            self.estado_pago = 'parcial'
+            nuevo_estado = 'parcial'
         
-        self.save()
+        # Solo actualizar si el estado cambió
+        if self.estado_pago != nuevo_estado:
+            self.estado_pago = nuevo_estado
+            self.save(update_fields=['estado_pago'])
     
     # ============================================================
     # CONFIGURACIÓN DEL MODELO

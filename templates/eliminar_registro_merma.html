@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block body_class %}dark-gold-theme{% endblock %}
+
+{% block contenido %}
+<div class="dashboard-main-container">
+    <!-- Sidebar Reutilizable -->
+    {% include 'includes/sidebar.html' with active_page='inventario' %}
+
+    <div class="dashboard-content-wrapper">
+        <div class="form-container dark-gold-theme">
+            <div class="edit-header">
+                <h2>Eliminar Registro de Merma</h2>
+                <a href="{% url 'detalle_producto' producto.id %}" class="btn btn-link back-link">
+                    <i class="bi bi-arrow-left"></i> Volver al Detalle
+                </a>
+            </div>
+
+            {% if messages %}
+                <ul class="messages">
+                    {% for message in messages %}
+                        <li class="{{ message.tags }}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+
+            <div class="card border-warning mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Confirmar Eliminación</h5>
+                </div>
+                <div class="card-body">
+                    <p>¿Está seguro de que desea eliminar el registro de merma del siguiente producto?</p>
+                    
+                    <div class="alert alert-info">
+                        <strong>Producto:</strong> {{ producto.nombre }}<br>
+                        {% if producto.marca %}
+                            <strong>Marca:</strong> {{ producto.marca }}<br>
+                        {% endif %}
+                        {% if producto.cantidad_merma and producto.cantidad_merma > 0 %}
+                            <strong>Cantidad Perdida:</strong> {{ producto.cantidad_merma }} unidad(es)<br>
+                        {% endif %}
+                        {% if producto.motivo_merma %}
+                            <strong>Motivo de Merma:</strong> {{ producto.motivo_merma }}<br>
+                        {% endif %}
+                        {% if producto.fecha_merma %}
+                            <strong>Fecha de Merma:</strong> {{ producto.fecha_merma|date:"d/m/Y H:i" }}<br>
+                        {% endif %}
+                        <strong>Estado Actual:</strong> 
+                        {% if producto.estado_merma == 'activo' %}
+                            <span class="badge bg-success">Activo</span>
+                        {% else %}
+                            <span class="badge bg-danger">{{ producto.get_estado_merma_display }}</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <strong>⚠️ Importante:</strong> Esta acción solo eliminará el <strong>historial</strong> de merma 
+                        (motivo y fecha). El estado actual del producto y su cantidad <strong>no se modificarán</strong>.
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash"></i> Sí, Eliminar Registro
+                            </button>
+                            <a href="{% url 'detalle_producto' producto.id %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

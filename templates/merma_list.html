@@ -99,6 +99,16 @@
                                         <span>ESTADO</span>
                                     </div>
                                 </th>
+                                <th>
+                                    <div class="header-content">
+                                        <span>MOTIVO</span>
+                                    </div>
+                                </th>
+                                <th>
+                                    <div class="header-content">
+                                        <span>FECHA MERMA</span>
+                                    </div>
+                                </th>
                                 <th class="sortable-header" data-sort="cantidad">
                                     <div class="header-content">
                                         <span>CANTIDAD</span>
@@ -135,6 +145,11 @@
                                         </div>
                                     </div>
                                 </th>
+                                <th>
+                                    <div class="header-content">
+                                        <span>ACCIONES</span>
+                                    </div>
+                                </th>
                             </tr>
                         </thead>
                         
@@ -144,9 +159,9 @@
                             <tr class="merma-row" 
                                 data-nombre="{{ producto.nombre|lower }}"
                                 data-perdida="{{ producto.calcular_perdida }}"
-                                data-cantidad="{{ producto.cantidad }}"
+                                data-cantidad="{% if producto.cantidad_merma %}{{ producto.cantidad_merma }}{% else %}{{ producto.cantidad }}{% endif %}"
                                 data-precio="{{ producto.precio }}"
-                                data-fecha="{{ producto.caducidad|date:'Y-m-d' }}">
+                                data-fecha="{% if producto.caducidad %}{{ producto.caducidad|date:'Y-m-d' }}{% else %}9999-12-31{% endif %}">
                                 <!-- Columna: Nombre del producto -->
                                 <td>
                                     <strong>{{ producto.nombre }}</strong>
@@ -158,7 +173,11 @@
                                 
                                 <!-- Columna: Estado de merma (con badge de color) -->
                                 <td>
-                                    {% if producto.estado_merma == 'vencido' %}
+                                    {% if producto.estado_merma == 'en_merma' %}
+                                        <span class="badge bg-danger">
+                                            <i class="bi bi-exclamation-triangle"></i> En Merma
+                                        </span>
+                                    {% elif producto.estado_merma == 'vencido' %}
                                         <span class="badge badge-vencido">
                                             <i class="bi bi-calendar-x"></i> Vencido
                                         </span>
@@ -170,12 +189,48 @@
                                         <span class="badge badge-danado">
                                             <i class="bi bi-box-seam"></i> Dañado
                                         </span>
+                                    {% elif producto.estado_merma == 'roto' %}
+                                        <span class="badge bg-danger">
+                                            <i class="bi bi-x-circle"></i> Roto
+                                        </span>
+                                    {% elif producto.estado_merma == 'robado' %}
+                                        <span class="badge bg-dark">
+                                            <i class="bi bi-shield-exclamation"></i> Robado
+                                        </span>
+                                    {% elif producto.estado_merma == 'otro' %}
+                                        <span class="badge bg-secondary">
+                                            <i class="bi bi-question-circle"></i> Otro
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">
+                                            {{ producto.get_estado_merma_display|default:producto.estado_merma }}
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                
+                                <!-- Columna: Motivo de merma -->
+                                <td>
+                                    {% if producto.motivo_merma %}
+                                        <span class="text-muted" title="{{ producto.motivo_merma }}">
+                                            {{ producto.motivo_merma|truncatewords:8 }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                
+                                <!-- Columna: Fecha de merma -->
+                                <td>
+                                    {% if producto.fecha_merma %}
+                                        {{ producto.fecha_merma|date:"d/m/Y H:i" }}
+                                    {% else %}
+                                        <span class="text-muted">—</span>
                                     {% endif %}
                                 </td>
                                 
                                 <!-- Columna: Cantidad -->
                                 <td>
-                                    <strong>{{ producto.cantidad }}</strong> unidades
+                                    <strong>{% if producto.cantidad_merma and producto.cantidad_merma > 0 %}{{ producto.cantidad_merma }}{% else %}{{ producto.cantidad }}{% endif %}</strong> unidades
                                 </td>
                                 
                                 <!-- Columna: Precio unitario (sin decimales) -->
@@ -192,13 +247,33 @@
                                 
                                 <!-- Columna: Fecha de caducidad -->
                                 <td>
-                                    {{ producto.caducidad|date:"d/m/Y" }}
+                                    {% if producto.caducidad %}
+                                        {{ producto.caducidad|date:"d/m/Y" }}
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                
+                                <!-- Columna: Acciones -->
+                                <td>
+                                    {% if producto.tiene_historial_merma %}
+                                        <form method="post" action="{% url 'eliminar_registro_merma' producto.id %}" style="display: inline;" 
+                                              onsubmit="return confirm('¿Eliminar el registro de merma de {{ producto.nombre }}? Esto no afectará el estado actual del producto.');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                                    title="Eliminar registro de merma">
+                                                <i class="bi bi-trash"></i> Eliminar Registro
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% empty %}
                             <!-- Mensaje cuando no hay productos en merma -->
                             <tr>
-                                <td colspan="6" class="merma-vacio">
+                                <td colspan="9" class="merma-vacio">
                                     <i class="bi bi-check-circle"></i>
                                     <p><strong>¡Excelente!</strong></p>
                                     <p>No hay productos en merma</p>

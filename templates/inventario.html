@@ -12,9 +12,20 @@
         <div class="inventory-container dark-gold-theme">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2 style="margin: 0;">Inventario</h2>
-                <a href="{% url 'ajustes_stock' %}" class="btn btn-warning" style="color: #000;">
-                    <i class="bi bi-sliders"></i> Ajustes de Stock
-                </a>
+                <div style="display: flex; gap: 10px;">
+                    <a href="{% url 'agregar_producto' %}" class="btn btn-success">
+                        <i class="bi bi-plus-circle"></i> Agregar Producto
+                    </a>
+                    <a href="{% url 'inventario' %}?mostrar_merma={% if mostrar_merma %}false{% else %}true{% endif %}" 
+                       class="btn {% if mostrar_merma %}btn-outline-secondary{% else %}btn-secondary{% endif %}"
+                       title="{% if mostrar_merma %}Ocultar productos en merma{% else %}Mostrar productos en merma{% endif %}">
+                        <i class="bi bi-{% if mostrar_merma %}eye-slash{% else %}eye{% endif %}"></i> 
+                        {% if mostrar_merma %}Ocultar Merma{% else %}Mostrar Merma{% endif %}
+                    </a>
+                    <a href="{% url 'ajustes_stock' %}" class="btn btn-warning" style="color: #000;">
+                        <i class="bi bi-sliders"></i> Ajustes de Stock
+                    </a>
+                </div>
             </div>
 
   {% if messages %}
@@ -29,14 +40,14 @@
   <!-- BARRA DE BÚSQUEDA                            -->
   <!-- ============================================ -->
   <!-- 
-    Permite buscar productos por nombre, marca o formato.
+    Permite buscar productos por nombre, marca o peso/tamaño.
     La búsqueda se realiza en el servidor (Django ORM).
   -->
   <form method="get" class="inventory-search" novalidate>
     <input type="text" 
            name="q" 
            value="{{ q }}" 
-           placeholder="Buscar por nombre, marca o formato"
+           placeholder="Buscar por nombre, marca o peso/tamaño"
            class="form-control">
     <button type="submit" class="btn btn-sm btn-primary">
       <i class="bi bi-search"></i> Buscar
@@ -74,6 +85,15 @@
               onclick="accionMasiva('crear_alertas')"
               disabled>
         <i class="bi bi-bell"></i> Crear Alertas
+      </button>
+      
+      <!-- Botón: Activar/Desactivar -->
+      <button type="button" 
+              class="btn btn-sm btn-outline-secondary" 
+              id="btn-activar-desactivar"
+              onclick="accionMasiva('activar_desactivar')"
+              disabled>
+        <i class="bi bi-toggle-on"></i> Activar/Desactivar
       </button>
       
       <!-- Botón: Mover a Merma -->
@@ -120,9 +140,9 @@
         </th>
         <th>Nombre</th>
         <th>Marca</th>
-        <th>Formato</th>
-        <th>Precio</th>
-        <th>Cantidad</th>
+        <th>Peso/Tamaño</th>
+        <th>Precio / Unidad Venta</th>
+        <th>Cantidad (Stock)</th>
         <th>Caducidad</th>
         <th>Acciones</th>
       </tr>
@@ -139,35 +159,84 @@
         </td>
         
         <!-- Nombre del producto -->
-        <td><strong>{{ p.nombre }}</strong></td>
+        <td>
+          <strong>{{ p.nombre }}</strong>
+          {% if p.estado_merma == 'en_merma' or p.cantidad == 0 %}
+            <span class="badge bg-danger ms-2" title="Producto en merma - necesita reabastecimiento">
+              <i class="bi bi-exclamation-triangle"></i> En Merma
+            </span>
+          {% elif p.estado_merma == 'inactivo' %}
+            <span class="badge bg-secondary ms-2" title="Producto inactivo - no disponible para venta">
+              <i class="bi bi-pause-circle"></i> Inactivo
+            </span>
+          {% endif %}
+        </td>
         
         <!-- Marca (muestra "—" si no tiene) -->
         <td>{{ p.marca|default:"—" }}</td>
         
-        <!-- Formato (ej: "500 g", "1 L") -->
-        <td>{{ p.formato|default:"—" }}</td>
+        <!-- Peso/Tamaño o Presentación (ej: "100g", "500ml", "Bolsa") -->
+        <td>{{ p.presentacion|default:"—" }}</td>
         
-        <!-- Precio SIN decimales (formato chileno) -->
-        <td><strong>${{ p.precio|floatformat:"0" }}</strong></td>
+        <!-- Precio por unidad de venta -->
+        <td>
+          <strong>${{ p.precio_por_unidad_venta|floatformat:"0" }}</strong>
+          <small class="text-muted">/ {{ p.get_unidad_venta_display }}</small>
+        </td>
         
-        <!-- Cantidad en stock -->
-        <td>{{ p.cantidad }}</td>
+        <!-- Cantidad en stock (desde lotes si existen) con unidad -->
+        <td>
+          {% if p.cantidad_desde_lotes == 0 %}
+            <span class="text-danger fw-bold">0 {{ p.get_unidad_stock_display }}</span>
+          {% else %}
+            {% if p.unidad_stock == 'unidad' %}
+              <strong>{{ p.cantidad_desde_lotes|floatformat:"0" }} {{ p.get_unidad_stock_display }}</strong>
+            {% else %}
+              <strong>{{ p.cantidad_desde_lotes|floatformat:"3" }} {{ p.get_unidad_stock_display }}</strong>
+            {% endif %}
+            {% if p.numero_lotes_activos > 0 %}
+              <small class="text-muted d-block">({{ p.numero_lotes_activos }} lote{{ p.numero_lotes_activos|pluralize }})</small>
+            {% endif %}
+          {% endif %}
+        </td>
         
         <!-- Fecha de caducidad -->
-        <td>{{ p.caducidad|date:"d/m/Y" }}</td>
-        
-        <!-- Acciones disponibles (solo Detalles y Editar) -->
         <td>
-          <a href="{% url 'proximamente_feature' 'inventario-detalle' %}" 
+          {% if p.estado_merma == 'en_merma' or p.caducidad == None %}
+            <span class="text-muted">—</span>
+          {% else %}
+            {{ p.caducidad|date:"d/m/Y" }}
+          {% endif %}
+        </td>
+        
+        <!-- Acciones disponibles -->
+        <td>
+          <a href="{% url 'detalle_producto' p.id %}" 
              class="btn btn-sm btn-outline-primary" 
              title="Ver detalles del producto">
             <i class="bi bi-eye"></i> Detalles
           </a>
           <a href="{% url 'editar_producto' p.id %}" 
-             class="btn btn-sm btn-outline-secondary"
-             title="Editar producto">
-            <i class="bi bi-pencil"></i> Editar
+             class="btn btn-sm {% if p.estado_merma == 'en_merma' or p.cantidad == 0 %}btn-success{% else %}btn-outline-secondary{% endif %}"
+             title="{% if p.estado_merma == 'en_merma' or p.cantidad == 0 %}Reabastecer producto{% else %}Editar producto{% endif %}">
+            <i class="bi {% if p.estado_merma == 'en_merma' or p.cantidad == 0 %}bi-arrow-clockwise{% else %}bi-pencil{% endif %}"></i> 
+            {% if p.estado_merma == 'en_merma' or p.cantidad == 0 %}Reabastecer{% else %}Editar{% endif %}
           </a>
+          {% if p.estado_merma == 'activo' %}
+            <button type="button" 
+                    class="btn btn-sm btn-outline-secondary" 
+                    onclick="cambiarEstadoProducto({{ p.id }}, 'inactivo')"
+                    title="Desactivar producto (no disponible para venta)">
+              <i class="bi bi-pause-circle"></i> Desactivar
+            </button>
+          {% elif p.estado_merma == 'inactivo' %}
+            <button type="button" 
+                    class="btn btn-sm btn-outline-success" 
+                    onclick="cambiarEstadoProducto({{ p.id }}, 'activo')"
+                    title="Activar producto (disponible para venta)">
+              <i class="bi bi-play-circle"></i> Activar
+            </button>
+          {% endif %}
         </td>
       </tr>
       {% empty %}
@@ -218,9 +287,10 @@ FUNCIONALIDADES:
 const checkboxTodos = document.getElementById('checkbox-todos');
 const checkboxesProductos = document.querySelectorAll('.producto-checkbox');
 const contadorSeleccionados = document.getElementById('contador-seleccionados');
-const btnCrearAlertas = document.getElementById('btn-crear-alertas');
-const btnMoverMerma = document.getElementById('btn-mover-merma');
-const btnEliminar = document.getElementById('btn-eliminar');
+    const btnCrearAlertas = document.getElementById('btn-crear-alertas');
+    const btnActivarDesactivar = document.getElementById('btn-activar-desactivar');
+    const btnMoverMerma = document.getElementById('btn-mover-merma');
+    const btnEliminar = document.getElementById('btn-eliminar');
 
 // ============================================================
 // FUNCIÓN: Actualizar Estado de la Interfaz
@@ -332,8 +402,40 @@ function accionMasiva(accion) {
             urlDestino = '/api/acciones-masivas/crear-alertas/';
             break;
         case 'mover_merma':
-            mensaje = `¿Mover ${ids.length} producto(s) a MERMA?\n\n${listaProductos}\n\nEsta acción cambiará el estado de los productos.`;
+            // Capturar motivo detallado de merma
+            // El producto se reducirá a cantidad 0 y se marcará como 'en_merma'
+            const motivoMerma = prompt(
+                `Mover ${ids.length} producto(s) a MERMA\n\n` +
+                `El producto se reducirá a cantidad 0 pero permanecerá visible.\n` +
+                `Podrás reabastecerlo editándolo más tarde.\n\n` +
+                `Ingrese el motivo detallado:\n` +
+                `Ejemplos: "vencido", "roto", "robado", "empaque dañado", "contaminado", etc.\n\n` +
+                `Motivo:`
+            );
+            
+            if (!motivoMerma || motivoMerma.trim() === '') {
+                alert('Debe ingresar un motivo detallado para mover el producto a merma.');
+                return;
+            }
+            
+            // Confirmar acción
+            mensaje = `¿Mover ${ids.length} producto(s) a MERMA?\n\n` +
+                     `Los productos se reducirán a cantidad 0.\n` +
+                     `Motivo: ${motivoMerma.trim()}\n\n` +
+                     `${listaProductos}\n\n` +
+                     `Nota: Los productos permanecerán visibles y podrás reabastecerlos editándolos.`;
+            
+            if (!confirm(mensaje)) {
+                return;
+            }
+            
             urlDestino = '/api/acciones-masivas/mover-merma/';
+            // Guardar datos para enviar en el body
+            // Ya no enviamos estado_merma, siempre será 'en_merma'
+            window.moverMermaData = {
+                ids: ids,
+                motivo_merma: motivoMerma.trim()
+            };
             break;
         case 'eliminar':
             mensaje = `¿ELIMINAR ${ids.length} producto(s)?\n\n${listaProductos}\n\n⚠️ Esta acción no se puede deshacer.`;
@@ -352,6 +454,19 @@ function accionMasiva(accion) {
     btnActual.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
     btnActual.disabled = true;
     
+    // Preparar datos a enviar
+    let datosEnvio = { ids: ids };
+    
+    // Si es mover a merma, incluir solo motivo (estado siempre será 'en_merma')
+    if (accion === 'mover_merma' && window.moverMermaData) {
+        datosEnvio = {
+            ids: window.moverMermaData.ids,
+            motivo_merma: window.moverMermaData.motivo_merma
+        };
+        // Limpiar datos temporales
+        delete window.moverMermaData;
+    }
+    
     // Enviar la petición al servidor
     fetch(urlDestino, {
         method: 'POST',
@@ -359,7 +474,7 @@ function accionMasiva(accion) {
             'Content-Type': 'application/json',
             'X-CSRFToken': getCookie('csrftoken')
         },
-        body: JSON.stringify({ ids: ids })
+        body: JSON.stringify(datosEnvio)
     })
     .then(response => response.json())
     .then(data => {
@@ -412,5 +527,44 @@ function getCookie(name) {
 // ============================================================
 // Actualizar el estado inicial al cargar la página
 actualizarEstado();
+
+// ============================================================
+// FUNCIÓN: Cambiar Estado Individual de Producto
+// ============================================================
+/**
+ * Cambia el estado de un producto individual (activo/inactivo).
+ * 
+ * @param {number} productoId - ID del producto
+ * @param {string} nuevoEstado - 'activo' o 'inactivo'
+ */
+function cambiarEstadoProducto(productoId, nuevoEstado) {
+    const estadoTexto = nuevoEstado === 'activo' ? 'activar' : 'desactivar';
+    
+    if (!confirm(`¿${estadoTexto.charAt(0).toUpperCase() + estadoTexto.slice(1)} este producto?`)) {
+        return;
+    }
+    
+    fetch(`/api/productos/${productoId}/cambiar-estado/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ estado: nuevoEstado })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload(); // Recargar para ver el cambio
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al cambiar el estado del producto');
+    });
+}
 </script>
 {% endblock %}

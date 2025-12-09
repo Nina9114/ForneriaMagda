@@ -69,6 +69,7 @@ def reporte_inventario_view(request):
         # ============================================================
         # PASO 3: Obtener productos según filtros
         # ============================================================
+        # Solo productos activos (excluye inactivos y en_merma)
         productos = Productos.objects.filter(
             eliminado__isnull=True,
             estado_merma='activo'
@@ -170,7 +171,7 @@ def exportar_inventario_csv(request):
         HttpResponse: Archivo CSV descargable
     """
     
-    # Aplicar mismos filtros que el reporte
+    # Aplicar mismos filtros que el reporte (solo productos activos, excluye inactivos y en_merma)
     productos = Productos.objects.filter(
         eliminado__isnull=True,
         estado_merma='activo'

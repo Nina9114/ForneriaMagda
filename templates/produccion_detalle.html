@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block body_class %}dark-gold-theme{% endblock %}
+
+{% block contenido %}
+<div class="dashboard-main-container">
+    <!-- Sidebar Reutilizable -->
+    {% include 'includes/sidebar.html' with active_page='produccion' %}
+
+    <div class="dashboard-content-wrapper">
+        <div class="inventory-container dark-gold-theme">
+            <!-- Encabezado -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+                <div>
+                    <h2 style="margin: 0;">Detalle de Lote</h2>
+                    <p class="text-muted" style="margin: 5px 0 0 0;">
+                        {{ lote.productos.nombre }}
+                        {% if lote.productos.estado_merma == 'inactivo' %}
+                            <span class="badge bg-secondary ms-2" title="Producto inactivo - no disponible para venta">
+                                <i class="bi bi-pause-circle"></i> Producto Inactivo
+                            </span>
+                        {% elif lote.productos.estado_merma == 'en_merma' %}
+                            <span class="badge bg-danger ms-2" title="Producto en merma">
+                                <i class="bi bi-exclamation-triangle"></i> En Merma
+                            </span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div>
+                    <a href="{% url 'produccion_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Volver a Producción
+                    </a>
+                </div>
+            </div>
+
+            <!-- Información del Lote -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="bi bi-info-circle"></i> Información del Lote</h5>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <td><strong>Producto:</strong></td>
+                                    <td>
+                                        {{ lote.productos.nombre }}
+                                        {% if lote.productos.estado_merma == 'inactivo' %}
+                                            <span class="badge bg-secondary ms-2" title="Producto inactivo - no disponible para venta">
+                                                <i class="bi bi-pause-circle"></i> Producto Inactivo
+                                            </span>
+                                        {% elif lote.productos.estado_merma == 'en_merma' %}
+                                            <span class="badge bg-danger ms-2" title="Producto en merma">
+                                                <i class="bi bi-exclamation-triangle"></i> En Merma
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Número de Lote:</strong></td>
+                                    <td>{{ lote.numero_lote|default:"—" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Cantidad Actual:</strong></td>
+                                    <td>
+                                        <strong class="text-primary">{{ lote.cantidad }}</strong> / {{ lote.cantidad_inicial }}
+                                        <div class="progress mt-2" style="height: 10px;">
+                                            <div class="progress-bar" role="progressbar" 
+                                                 style="width: {% widthratio lote.cantidad lote.cantidad_inicial 100 %}%">
+                                            </div>
+                                        </div>
+                                        <small class="text-muted">{{ porcentaje_consumido|floatformat:1 }}% consumido</small>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Fecha Elaboración:</strong></td>
+                                    <td>{{ lote.fecha_elaboracion|date:"d/m/Y"|default:"—" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Fecha Caducidad:</strong></td>
+                                    <td>
+                                        {{ lote.fecha_caducidad|date:"d/m/Y" }}
+                                        {% if dias_hasta_vencer is not None %}
+                                            {% if dias_hasta_vencer < 0 %}
+                                                <span class="badge bg-danger ms-2">Vencido ({{ dias_hasta_vencer_abs }} días)</span>
+                                            {% elif dias_hasta_vencer <= 3 %}
+                                                <span class="badge bg-danger ms-2">{{ dias_hasta_vencer }} días</span>
+                                            {% elif dias_hasta_vencer <= 7 %}
+                                                <span class="badge bg-warning text-dark ms-2">{{ dias_hasta_vencer }} días</span>
+                                            {% else %}
+                                                <span class="badge bg-success ms-2">{{ dias_hasta_vencer }} días</span>
+                                            {% endif %}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Fecha Recepción:</strong></td>
+                                    <td>{{ lote.fecha_recepcion|date:"d/m/Y H:i" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Origen:</strong></td>
+                                    <td><span class="badge bg-info">{{ lote.get_origen_display }}</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Estado:</strong></td>
+                                    <td>
+                                        {% if lote.estado == 'activo' %}
+                                            <span class="badge bg-success">Activo</span>
+                                        {% elif lote.estado == 'inactivo' %}
+                                            <span class="badge bg-secondary">Inactivo</span>
+                                        {% elif lote.estado == 'agotado' %}
+                                            <span class="badge bg-secondary">Agotado</span>
+                                        {% elif lote.estado == 'vencido' %}
+                                            <span class="badge bg-danger">Vencido</span>
+                                        {% elif lote.estado == 'en_merma' %}
+                                            <span class="badge bg-warning text-dark">En Merma</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ lote.estado }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0"><i class="bi bi-arrow-left-right"></i> Movimientos Recientes</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if movimientos %}
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha</th>
+                                            <th>Tipo</th>
+                                            <th>Cantidad</th>
+                                            <th>Origen</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for movimiento in movimientos %}
+                                        <tr>
+                                            <td>{{ movimiento.fecha|date:"d/m/Y H:i" }}</td>
+                                            <td>
+                                                <span class="badge {% if movimiento.tipo_movimiento == 'entrada' %}bg-success{% else %}bg-danger{% endif %}">
+                                                    {{ movimiento.get_tipo_movimiento_display }}
+                                                </span>
+                                            </td>
+                                            <td>{{ movimiento.cantidad }}</td>
+                                            <td>{{ movimiento.origen|default:"—" }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <p class="text-muted text-center">No hay movimientos registrados para este lote.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

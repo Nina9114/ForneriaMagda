@@ -13,7 +13,7 @@ from django.contrib import messages
 from django.db.models import Q, Sum
 from django.http import JsonResponse
 from django.utils import timezone
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import date, datetime
 from ventas.models.proveedores import Proveedor, FacturaProveedor, DetalleFacturaProveedor, PagoProveedor
 from ventas.models.productos import Productos
@@ -59,8 +59,11 @@ def facturas_proveedores_list_view(request):
     if estado_pago_filter:
         facturas = facturas.filter(estado_pago=estado_pago_filter)
     
-    if estado_recepcion_filter:
-        facturas = facturas.filter(estado_recepcion=estado_recepcion_filter)
+    # Usar fecha_recepcion para determinar si está recibida
+    if estado_recepcion_filter == 'recibida':
+        facturas = facturas.filter(fecha_recepcion__isnull=False)
+    elif estado_recepcion_filter == 'pendiente':
+        facturas = facturas.filter(fecha_recepcion__isnull=True)
     
     if fecha_desde:
         try:
@@ -107,6 +110,7 @@ def factura_proveedor_crear_view(request):
     Vista para crear una nueva factura de proveedor.
     """
     proveedores = Proveedor.objects.filter(eliminado__isnull=True, estado='activo').order_by('nombre')
+    # Solo productos activos (excluye inactivos y en_merma)
     productos = Productos.objects.filter(eliminado__isnull=True, estado_merma='activo').order_by('nombre')
     
     if request.method == 'POST':
@@ -118,7 +122,8 @@ def factura_proveedor_crear_view(request):
             fecha_vencimiento_str = request.POST.get('fecha_vencimiento', '') or None
             fecha_recepcion_str = request.POST.get('fecha_recepcion', '') or None
             estado_pago = request.POST.get('estado_pago', 'pendiente')
-            estado_recepcion = request.POST.get('estado_recepcion', 'pendiente')
+            # estado_recepcion ya no existe, se determina por fecha_recepcion
+            # Si fecha_recepcion tiene valor, está recibida; si es NULL, está pendiente
             subtotal_sin_iva = Decimal(request.POST.get('subtotal_sin_iva', '0.00'))
             total_iva = Decimal(request.POST.get('total_iva', '0.00'))
             descuento = Decimal(request.POST.get('descuento', '0.00'))
@@ -169,7 +174,6 @@ def factura_proveedor_crear_view(request):
                 fecha_vencimiento=fecha_vencimiento,
                 fecha_recepcion=fecha_recepcion,
                 estado_pago=estado_pago,
-                estado_recepcion=estado_recepcion,
                 subtotal_sin_iva=subtotal_sin_iva,
                 total_iva=total_iva,
                 descuento=descuento,
@@ -229,12 +233,11 @@ def factura_proveedor_detalle_view(request, factura_id):
     ).select_related('productos').order_by('id')
     
     # Obtener productos disponibles para agregar (solo si no está recibida)
-    productos = None
-    if factura.estado_recepcion != 'recibida':
-        productos = Productos.objects.filter(
-            eliminado__isnull=True,
-            estado_merma='activo'
-        ).order_by('nombre')
+    # IMPORTANTE: Siempre pasar productos, incluso si está recibida (para evitar errores en template)
+    productos = Productos.objects.filter(
+        eliminado__isnull=True,
+        estado_merma='activo'
+    ).order_by('nombre')
     
     # Obtener pagos de la factura
     pagos = PagoProveedor.objects.filter(
@@ -278,11 +281,34 @@ def factura_proveedor_editar_view(request, factura_id):
             fecha_vencimiento_str = request.POST.get('fecha_vencimiento', '') or None
             fecha_recepcion_str = request.POST.get('fecha_recepcion', '') or None
             factura.estado_pago = request.POST.get('estado_pago', 'pendiente')
-            factura.estado_recepcion = request.POST.get('estado_recepcion', 'pendiente')
-            factura.subtotal_sin_iva = Decimal(request.POST.get('subtotal_sin_iva', '0.00'))
-            factura.total_iva = Decimal(request.POST.get('total_iva', '0.00'))
-            factura.descuento = Decimal(request.POST.get('descuento', '0.00'))
-            factura.total_con_iva = Decimal(request.POST.get('total_con_iva', '0.00'))
+            # estado_recepcion eliminado - se determina por fecha_recepcion
+            # Obtener totales del formulario (si están vacíos, mantener los valores existentes)
+            subtotal_sin_iva_str = request.POST.get('subtotal_sin_iva', '').strip()
+            total_iva_str = request.POST.get('total_iva', '').strip()
+            total_con_iva_str = request.POST.get('total_con_iva', '').strip()
+            descuento_str = request.POST.get('descuento', '0.00').strip()
+            
+            # Si los campos tienen valor, actualizarlos; si están vacíos, mantener los valores existentes
+            # Esto evita que se borren los totales cuando el usuario solo edita otros campos
+            if subtotal_sin_iva_str:
+                factura.subtotal_sin_iva = Decimal(subtotal_sin_iva_str)
+            # Si está vacío, mantener el valor existente (no cambiar)
+            
+            if total_iva_str:
+                factura.total_iva = Decimal(total_iva_str)
+            # Si está vacío, mantener el valor existente (no cambiar)
+            
+            if total_con_iva_str:
+                factura.total_con_iva = Decimal(total_con_iva_str)
+            # Si está vacío, mantener el valor existente (no cambiar)
+            
+            if descuento_str:
+                factura.descuento = Decimal(descuento_str)
+            # Si descuento está vacío, mantener el valor existente o usar 0.00
+            elif not factura.descuento:
+                factura.descuento = Decimal('0.00')
+            # Si ya tiene valor, mantenerlo
+            
             factura.observaciones = request.POST.get('observaciones', '').strip() or None
             
             # Convertir fechas
@@ -290,8 +316,14 @@ def factura_proveedor_editar_view(request, factura_id):
                 factura.fecha_factura = datetime.strptime(fecha_factura_str, '%Y-%m-%d').date()
             if fecha_vencimiento_str:
                 factura.fecha_vencimiento = datetime.strptime(fecha_vencimiento_str, '%Y-%m-%d').date()
+            else:
+                factura.fecha_vencimiento = None
+            
+            # Permitir quitar la fecha de recepción (dejarla vacía)
             if fecha_recepcion_str:
                 factura.fecha_recepcion = datetime.strptime(fecha_recepcion_str, '%Y-%m-%d').date()
+            else:
+                factura.fecha_recepcion = None  # Quitar fecha de recepción si se deja vacía
             
             factura.save()
             

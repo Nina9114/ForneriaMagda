@@ -6,103 +6,218 @@
 {% block contenido %}
 <div class="dashboard-main-container">
     <!-- Sidebar Reutilizable -->
-    {% include 'includes/sidebar.html' with active_page='agregar_producto' %}
+    {% include 'includes/sidebar.html' with active_page='inventario' %}
 
     <div class="dashboard-content-wrapper">
-        <div class="form-container form-producto">
-            <h2>Agregar Nuevo Producto</h2>
-    {% if messages %}
-      <ul class="messages">
-        {% for message in messages %}
-          <li class="{{ message.tags }}">{{ message }}</li>
-        {% endfor %}
-      </ul>
-    {% endif %}
-
-    {% if form.errors %}
-      <div class="error-summary">Por favor corrige los campos marcados.</div>
-    {% endif %}
-
-    <form method="post" novalidate>
-        {% csrf_token %}
-        <div class="form-grid">
-            <div class="form-row">
-              {{ form.nombre.label_tag }} {{ form.nombre }}
-              {% if form.nombre.errors %}<div class="field-error">{{ form.nombre.errors|striptags }}</div>{% endif %}
+        <div class="edit-product-container dark-gold-theme">
+            <div class="edit-header">
+                <h2>Agregar Nuevo Producto</h2>
+                <a href="{% url 'inventario' %}" class="btn btn-link back-link">
+                    <i class="bi bi-arrow-left"></i> Volver al Inventario
+                </a>
             </div>
 
-            <div class="form-row">
-              {{ form.descripcion.label_tag }} {{ form.descripcion }}
-              {% if form.descripcion.errors %}<div class="field-error">{{ form.descripcion.errors|striptags }}</div>{% endif %}
-            </div>
+            {% if messages %}
+            <ul class="messages">
+                {% for message in messages %}
+                <li class="{{ message.tags }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
 
-            <div class="form-row">
-              {{ form.marca.label_tag }} {{ form.marca }}
-              {% if form.marca.errors %}<div class="field-error">{{ form.marca.errors|striptags }}</div>{% endif %}
+            {% if form.errors %}
+            <div class="alert alert-danger">
+                <strong>Por favor corrige los siguientes errores:</strong>
+                <ul>
+                    {% for field in form %}
+                        {% for error in field.errors %}
+                            <li>{{ field.label }}: {{ error }}</li>
+                        {% endfor %}
+                    {% endfor %}
+                    {% for error in form.non_field_errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
             </div>
+            {% endif %}
 
-            <div class="form-row">
-              {{ form.tipo.label_tag }} {{ form.tipo }}
-              {% if form.tipo.errors %}<div class="field-error">{{ form.tipo.errors|striptags }}</div>{% endif %}
-            </div>
+            <form method="post" novalidate>
+                {% csrf_token %}
 
-            <div class="form-row">
-              {{ form.categorias.label_tag }} {{ form.categorias }}
-              {% if form.categorias.errors %}<div class="field-error">{{ form.categorias.errors|striptags }}</div>{% endif %}
-            </div>
+                <div class="edit-grid">
+                    <!-- Columna izquierda: Datos del producto -->
+                    <section class="edit-card">
+                        <h3 class="edit-section-title">
+                            <i class="bi bi-box-seam"></i> Datos del Producto
+                        </h3>
+                        <div class="form-grid">
+                            <div class="form-row">
+                                {{ form.nombre.label_tag }} {{ form.nombre }}
+                                {% if form.nombre.errors %}<div class="field-error">{{ form.nombre.errors|striptags }}</div>{% endif %}
+                            </div>
 
-            <div class="form-row">
-              {{ form.precio.label_tag }} {{ form.precio }}
-              {% if form.precio.errors %}<div class="field-error">{{ form.precio.errors|striptags }}</div>{% endif %}
-            </div>
+                            <div class="form-row">
+                                {{ form.descripcion.label_tag }} {{ form.descripcion }}
+                                {% if form.descripcion.errors %}<div class="field-error">{{ form.descripcion.errors|striptags }}</div>{% endif %}
+                            </div>
 
-            <div class="form-row">
-              {{ form.cantidad.label_tag }} {{ form.cantidad }}
-              {% if form.cantidad.errors %}<div class="field-error">{{ form.cantidad.errors|striptags }}</div>{% endif %}
-            </div>
+                            <div class="form-row">
+                                {{ form.marca.label_tag }} {{ form.marca }}
+                                {% if form.marca.errors %}<div class="field-error">{{ form.marca.errors|striptags }}</div>{% endif %}
+                            </div>
 
-            <div class="form-row">
-              {{ form.stock_minimo.label_tag }} {{ form.stock_minimo }}
-              {% if form.stock_minimo.errors %}<div class="field-error">{{ form.stock_minimo.errors|striptags }}</div>{% endif %}
-            </div>
+                            <div class="form-row">
+                                {{ form.tipo.label_tag }} {{ form.tipo }}
+                                {% if form.tipo.errors %}<div class="field-error">{{ form.tipo.errors|striptags }}</div>{% endif %}
+                            </div>
 
-            <div class="form-row">
-              {{ form.stock_maximo.label_tag }} {{ form.stock_maximo }}
-              {% if form.stock_maximo.errors %}<div class="field-error">{{ form.stock_maximo.errors|striptags }}</div>{% endif %}
-            </div>
+                            <div class="form-row">
+                                {{ form.categorias.label_tag }} {{ form.categorias }}
+                                {% if form.categorias.errors %}<div class="field-error">{{ form.categorias.errors|striptags }}</div>{% endif %}
+                            </div>
 
-            <div class="form-row">
-              {{ form.presentacion.label_tag }} {{ form.presentacion }}
-              {% if form.presentacion.errors %}<div class="field-error">{{ form.presentacion.errors|striptags }}</div>{% endif %}
-            </div>
+                            <div class="form-row">
+                                <label for="{{ form.presentacion.id_for_label }}">Peso/Tamaño o Presentación:</label>
+                                {{ form.presentacion }}
+                                <small class="form-text text-muted">Ej: 100g (por galleta), 500ml (por botella), o "Bolsa", "Caja"</small>
+                                {% if form.presentacion.errors %}<div class="field-error">{{ form.presentacion.errors|striptags }}</div>{% endif %}
+                            </div>
+                        </div>
+                    </section>
 
-            <div class="form-row">
-              {{ form.elaboracion.label_tag }} {{ form.elaboracion }}
-              {% if form.elaboracion.errors %}<div class="field-error">{{ form.elaboracion.errors|striptags }}</div>{% endif %}
-            </div>
+                    <!-- Columna central: Unidades y Precio -->
+                    <section class="edit-card">
+                        <h3 class="edit-section-title">
+                            <i class="bi bi-calculator"></i> Unidades de Medida y Precio
+                        </h3>
+                        <div class="form-grid">
+                            <div class="form-row">
+                                <label>Unidad de Stock:</label>
+                                {{ form.unidad_stock }}
+                                <small class="form-text text-muted">Unidad en que se almacena el stock (ej: unidad, kg, litros)</small>
+                                {% if form.unidad_stock.errors %}<div class="field-error">{{ form.unidad_stock.errors|striptags }}</div>{% endif %}
+                            </div>
 
-            <div class="form-row">
-              {{ form.caducidad.label_tag }} {{ form.caducidad }}
-              {% if form.caducidad.errors %}<div class="field-error">{{ form.caducidad.errors|striptags }}</div>{% endif %}
-            </div>
+                            <div class="form-row">
+                                <label>Unidad de Venta:</label>
+                                {{ form.unidad_venta }}
+                                <small class="form-text text-muted">Unidad en que se vende el producto (puede ser diferente a stock)</small>
+                                {% if form.unidad_venta.errors %}<div class="field-error">{{ form.unidad_venta.errors|striptags }}</div>{% endif %}
+                            </div>
 
-            <!-- Grupo Formato: “Formato:” + número + select sin etiqueta “Unidad” -->
-            <div class="form-row">
-              <label for="id_formato_cantidad">Formato:</label>
-              {{ form.formato_cantidad }}
-              {{ form.formato_unidad }}
-              {% if form.formato_cantidad.errors %}<div class="field-error">{{ form.formato_cantidad.errors|striptags }}</div>{% endif %}
-              {% if form.formato_unidad.errors %}<div class="field-error">{{ form.formato_unidad.errors|striptags }}</div>{% endif %}
-              {{ form.formato }} <!-- oculto, se completa en save() -->
-            </div>
-        </div>
+                            <div class="form-row">
+                                {{ form.precio_por_unidad_venta.label_tag }} {{ form.precio_por_unidad_venta }}
+                                <small class="form-text text-muted">Precio por unidad de venta (ej: $3,000 por kilo, $500 por unidad)</small>
+                                {% if form.precio_por_unidad_venta.errors %}<div class="field-error">{{ form.precio_por_unidad_venta.errors|striptags }}</div>{% endif %}
+                            </div>
+                        </div>
+                    </section>
 
-        <button type="submit" class="submit-button">Guardar Producto</button>
-    </form>
-    <div class="form-link">
-        <a href="{% url 'dashboard' %}">Volver al Dashboard</a>
-    </div>
+                    <!-- Columna derecha: Stock y Fechas -->
+                    <section class="edit-card">
+                        <h3 class="edit-section-title">
+                            <i class="bi bi-boxes"></i> Stock y Fechas
+                        </h3>
+                        <div class="form-grid">
+                            <div class="form-row">
+                                {{ form.cantidad.label_tag }} {{ form.cantidad }}
+                                <small class="form-text text-muted">Cantidad de stock (permite decimales: ej: 20.5 kilos, 1.25 litros)</small>
+                                {% if form.cantidad.errors %}<div class="field-error">{{ form.cantidad.errors|striptags }}</div>{% endif %}
+                            </div>
+
+                            <div class="form-row">
+                                {{ form.stock_minimo.label_tag }} {{ form.stock_minimo }}
+                                <small class="form-text text-muted">Cantidad mínima antes de generar alerta</small>
+                                {% if form.stock_minimo.errors %}<div class="field-error">{{ form.stock_minimo.errors|striptags }}</div>{% endif %}
+                            </div>
+
+                            <div class="form-row">
+                                {{ form.stock_maximo.label_tag }} {{ form.stock_maximo }}
+                                <small class="form-text text-muted">Cantidad máxima recomendada</small>
+                                {% if form.stock_maximo.errors %}<div class="field-error">{{ form.stock_maximo.errors|striptags }}</div>{% endif %}
+                            </div>
+
+                            <div class="form-row">
+                                {{ form.elaboracion.label_tag }} {{ form.elaboracion }}
+                                <small class="form-text text-muted">Fecha de elaboración (opcional)</small>
+                                {% if form.elaboracion.errors %}<div class="field-error">{{ form.elaboracion.errors|striptags }}</div>{% endif %}
+                            </div>
+
+                            <div class="form-row">
+                                {{ form.caducidad.label_tag }} {{ form.caducidad }}
+                                <small class="form-text text-muted">Fecha de caducidad (opcional)</small>
+                                {% if form.caducidad.errors %}<div class="field-error">{{ form.caducidad.errors|striptags }}</div>{% endif %}
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="bi bi-check-circle"></i> Guardar Producto
+                    </button>
+                    <a href="{% url 'inventario' %}" class="btn btn-secondary btn-lg">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </a>
+                </div>
+            </form>
         </div>
     </div>
 </div>
+
+<style>
+.form-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: flex-end;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(184, 134, 11, 0.2);
+}
+
+.form-actions .btn {
+    min-width: 150px;
+}
+
+.back-link {
+    color: #d4af37;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.back-link:hover {
+    color: #f4d03f;
+    text-decoration: underline;
+}
+
+.edit-section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid rgba(184, 134, 11, 0.3);
+}
+
+.edit-section-title i {
+    color: #d4af37;
+    font-size: 1.2em;
+}
+
+/* Mejorar visibilidad de textos de ayuda */
+.form-text.text-muted {
+    color: #d4af37 !important;
+    font-size: 0.9em;
+    font-weight: 400;
+    opacity: 0.9;
+    margin-top: 5px;
+    display: block;
+}
+
+.form-text.text-muted:hover {
+    opacity: 1;
+    color: #f4d03f !important;
+}
+</style>
 {% endblock %}

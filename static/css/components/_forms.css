@@ -30,11 +30,13 @@
 }
 
 /* --- Etiquetas de los Campos (Ej: "Nombre", "Precio") --- */
-.form-producto label {
+.form-producto label,
+.edit-product-container label,
+.edit-card label {
     display: block;         /* Asegura que la etiqueta ocupe su propia línea. */
     margin-bottom: 6px;     /* Espacio extra debajo de la etiqueta. */
     font-weight: 600;       /* Pone el texto de la etiqueta en semi-negrita. */
-    color: #f0f0f0;         /* Color de texto claro para que contraste con el fondo oscuro. */
+    color: #e0e0e0;         /* Color de texto claro/oscuro para mejor visibilidad. */
 }
 
 /* --- Campos de Entrada (Inputs, Selects, Textareas) --- */

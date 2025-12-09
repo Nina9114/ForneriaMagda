@@ -25,7 +25,8 @@ from ventas.views import (
     
     # Vistas de productos e inventario
     agregar_producto_view, inventario_view, editar_producto_view, 
-    eliminar_producto_view,
+    eliminar_producto_view, detalle_producto_view, eliminar_registro_merma_view,
+    cambiar_estado_producto_ajax,
     
     # Vistas de gestión de usuarios (admin)
     usuarios_list_view, usuario_editar_view, usuario_eliminar_view,
@@ -48,7 +49,7 @@ from ventas.views import (
     reportes_view,
     
     # Vistas de Acciones Masivas (NUEVO)
-    crear_alertas_masivo, mover_merma_masivo, eliminar_masivo,
+    crear_alertas_masivo, mover_merma_masivo, activar_desactivar_masivo, eliminar_masivo,
     
     # Vistas de Métricas del Dashboard (NUEVO)
     ventas_del_dia_api, stock_bajo_api, alertas_pendientes_api, top_producto_api,
@@ -57,8 +58,11 @@ from ventas.views import (
     proveedores_list_view, proveedor_crear_view, proveedor_editar_view, proveedor_eliminar_view,
     facturas_proveedores_list_view, factura_proveedor_crear_view, factura_proveedor_detalle_view,
     factura_proveedor_editar_view, factura_proveedor_eliminar_view,
-    agregar_detalle_factura_ajax, eliminar_detalle_factura_ajax, recibir_factura_ajax,
+    agregar_detalle_factura_ajax, eliminar_detalle_factura_ajax, recibir_factura_ajax, quitar_recepcion_factura_ajax,
     pagos_proveedores_list_view, pago_proveedor_crear_view, pago_proveedor_eliminar_view,
+    
+    # Vistas de Producción (NUEVO)
+    produccion_list_view, produccion_crear_view, produccion_detalle_view,
 )
 
 # Vistas de APIs para el dashboard
@@ -134,11 +138,20 @@ urlpatterns = [
     # Ver inventario completo
     path('inventario/', inventario_view, name='inventario'),
     
+    # Ver detalle de un producto
+    path('inventario/detalle/<int:producto_id>/', detalle_producto_view, name='detalle_producto'),
+    
     # Editar un producto existente
     path('inventario/editar/<int:producto_id>/', editar_producto_view, name='editar_producto'),
     
     # Eliminar un producto (borrado lógico)
     path('inventario/eliminar/<int:producto_id>/', eliminar_producto_view, name='eliminar_producto'),
+    
+    # Eliminar registro de merma de un producto
+    path('inventario/detalle/<int:producto_id>/eliminar-merma/', eliminar_registro_merma_view, name='eliminar_registro_merma'),
+    
+    # Cambiar estado de producto (activo/inactivo) - API
+    path('api/productos/<int:producto_id>/cambiar-estado/', cambiar_estado_producto_ajax, name='api_cambiar_estado_producto'),
     
     # ============================================================
     # SISTEMA DE PUNTO DE VENTA (POS) - NUEVO
@@ -251,6 +264,7 @@ urlpatterns = [
     # APIs para ejecutar acciones sobre múltiples productos
     path('api/acciones-masivas/crear-alertas/', crear_alertas_masivo, name='api_crear_alertas_masivo'),
     path('api/acciones-masivas/mover-merma/', mover_merma_masivo, name='api_mover_merma_masivo'),
+    path('api/acciones-masivas/activar-desactivar/', activar_desactivar_masivo, name='api_activar_desactivar_masivo'),
     path('api/acciones-masivas/eliminar/', eliminar_masivo, name='api_eliminar_masivo'),
     
     # ============================================================
@@ -273,12 +287,20 @@ urlpatterns = [
     path('api/factura/<int:factura_id>/agregar-producto/', agregar_detalle_factura_ajax, name='api_agregar_detalle_factura'),
     path('api/detalle-factura/<int:detalle_id>/eliminar/', eliminar_detalle_factura_ajax, name='api_eliminar_detalle_factura'),
     path('api/factura/<int:factura_id>/recibir/', recibir_factura_ajax, name='api_recibir_factura'),
+    path('api/factura/<int:factura_id>/quitar-recepcion/', quitar_recepcion_factura_ajax, name='api_quitar_recepcion_factura'),
     
     # Pagos a Proveedores
     path('pagos-proveedores/', pagos_proveedores_list_view, name='pagos_proveedores_list'),
     path('pagos-proveedores/crear/', pago_proveedor_crear_view, name='pago_proveedor_crear'),
     path('pagos-proveedores/crear/<int:factura_id>/', pago_proveedor_crear_view, name='pago_proveedor_crear_factura'),
     path('pagos-proveedores/eliminar/<int:pago_id>/', pago_proveedor_eliminar_view, name='pago_proveedor_eliminar'),
+    
+    # ============================================================
+    # URLs de Producción (NUEVO)
+    # ============================================================
+    path('produccion/', produccion_list_view, name='produccion_list'),
+    path('produccion/crear/', produccion_crear_view, name='produccion_crear'),
+    path('produccion/detalle/<int:lote_id>/', produccion_detalle_view, name='produccion_detalle'),
     
     # ============================================================
     # PÁGINA "PRÓXIMAMENTE" (FUNCIONES EN DESARROLLO)

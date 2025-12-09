@@ -11,7 +11,15 @@ from .views_autentication import logout_view
 from .views_autentication import usuarios_list_view, usuario_editar_view, usuario_eliminar_view
 
 # --- Vistas de Productos e Inventario ---
-from .views_productos import agregar_producto_view, inventario_view, editar_producto_view, eliminar_producto_view
+from .views_productos import (
+    agregar_producto_view, 
+    inventario_view, 
+    editar_producto_view, 
+    eliminar_producto_view,
+    detalle_producto_view,
+    eliminar_registro_merma_view,
+    cambiar_estado_producto_ajax
+)
 
 # --- Vistas del Sistema POS (Punto de Venta) ---
 from .views_pos import pos_view, agregar_cliente_ajax, validar_producto_ajax, procesar_venta_ajax
@@ -48,7 +56,7 @@ from .view_comprobante import comprobante_pdf_view, comprobante_html_view
 from .view_ajustes_stock import ajustes_stock_view, procesar_ajuste_stock_ajax
 
 # --- Vistas de Acciones Masivas (NUEVO) ---
-from .view_acciones_masivas import crear_alertas_masivo, mover_merma_masivo, eliminar_masivo
+from .view_acciones_masivas import crear_alertas_masivo, mover_merma_masivo, activar_desactivar_masivo, eliminar_masivo
 
 # --- Vistas de Métricas del Dashboard (NUEVO) ---
 from .view_dashboard_metrics import (
@@ -75,10 +83,18 @@ from .views_facturas_proveedores import (
 from .views_detalles_factura import (
     agregar_detalle_factura_ajax,
     eliminar_detalle_factura_ajax,
-    recibir_factura_ajax
+    recibir_factura_ajax,
+    quitar_recepcion_factura_ajax
 )
 from .views_pagos_proveedores import (
     pagos_proveedores_list_view,
     pago_proveedor_crear_view,
     pago_proveedor_eliminar_view
+)
+
+# --- Vistas de Producción (NUEVO) ---
+from .views_produccion import (
+    produccion_list_view,
+    produccion_crear_view,
+    produccion_detalle_view
 )

@@ -194,9 +194,19 @@ def pago_proveedor_crear_view(request, factura_id=None):
         except FacturaProveedor.DoesNotExist:
             pass
     
+    # Calcular saldo pendiente para cada factura y filtrar solo las que tienen saldo > 0
+    facturas_con_saldo = []
+    for factura in facturas:
+        saldo = factura.calcular_saldo_pendiente()
+        if saldo > 0:  # Solo incluir facturas con saldo pendiente
+            facturas_con_saldo.append({
+                'factura': factura,
+                'saldo_pendiente': saldo
+            })
+    
     return render(request, 'pago_proveedor_form.html', {
         'modo': 'crear',
-        'facturas': facturas,
+        'facturas_con_saldo': facturas_con_saldo,
         'factura_seleccionada': factura_seleccionada,
         'saldo_pendiente': saldo_pendiente
     })

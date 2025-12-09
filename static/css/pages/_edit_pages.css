@@ -25,7 +25,8 @@
 /* --- Título en la Cabecera (h2) --- */
 /* Para los títulos principales como "Editar Producto". */
 .edit-product-container .edit-header h2 {
-  color: var(--gold); /* Color dorado del tema para el texto del título. */
+  color: #f0f0f0; /* Color claro/oscuro para mejor visibilidad. */
+  font-weight: 600; /* Texto semi-negrita para mayor contraste. */
   margin: 0;          /* Elimina cualquier margen por defecto del h2 para un control preciso. */
 }
 

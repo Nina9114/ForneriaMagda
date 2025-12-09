@@ -35,12 +35,14 @@
                     
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label">Contacto</label>
-                            <input type="text" name="contacto" class="form-control" value="{{ proveedor.contacto|default:'' }}">
+                            <label class="form-label">Persona de Contacto</label>
+                            <input type="text" name="contacto" class="form-control" value="{{ proveedor.contacto|default:'' }}" placeholder="Ej: Juan Pérez">
+                            <small class="form-text text-muted">Nombre de la persona con quien contactar</small>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Teléfono</label>
-                            <input type="text" name="telefono" class="form-control" value="{{ proveedor.telefono|default:'' }}">
+                            <input type="text" name="telefono" class="form-control" value="{{ proveedor.telefono|default:'' }}" placeholder="Ej: +56 9 1234 5678">
+                            <small class="form-text text-muted">Número telefónico de contacto</small>
                         </div>
                     </div>
                     

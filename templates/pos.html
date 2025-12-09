@@ -79,8 +79,11 @@ FUNCIONALIDAD:
                                 <!-- Tarjeta de producto -->
                                 <div class="producto-card" data-producto-id="{{ producto.id }}"
                                     data-producto-nombre="{{ producto.nombre }}"
-                                    data-producto-precio="{{ producto.precio|floatformat:0 }}"
-                                    data-producto-stock="{{ producto.cantidad }}">
+                                    data-producto-precio="{{ producto.precio_por_unidad_venta|floatformat:2 }}"
+                                    data-producto-precio-original="{{ producto.precio_por_unidad_venta }}"
+                                    data-producto-stock="{{ producto.cantidad }}"
+                                    data-producto-unidad-venta="{{ producto.unidad_venta }}"
+                                    data-producto-unidad-stock="{{ producto.unidad_stock }}">
 
                                     <!-- Nombre del producto -->
                                     <div class="producto-nombre text-truncate" title="{{ producto.nombre }}">
@@ -102,13 +105,19 @@ FUNCIONALIDAD:
 
                                     <!-- Precio -->
                                     <div class="producto-precio">
-                                        ${{ producto.precio|floatformat:0 }}
+                                        ${{ producto.precio_por_unidad_venta|floatformat:0 }}
+                                        <small class="text-muted">/ {{ producto.get_unidad_venta_display }}</small>
                                     </div>
 
                                     <!-- Stock disponible -->
                                     <div class="producto-stock">
                                         <small class="text-muted">
-                                            <i class="bi bi-box-seam"></i> Stock: {{ producto.cantidad }}
+                                            <i class="bi bi-box-seam"></i> Stock: 
+                                            {% if producto.unidad_stock == 'unidad' %}
+                                                {{ producto.cantidad|floatformat:0 }} {{ producto.get_unidad_stock_display }}
+                                            {% else %}
+                                                {{ producto.cantidad|floatformat:3 }} {{ producto.get_unidad_stock_display }}
+                                            {% endif %}
                                         </small>
                                     </div>
 
@@ -191,20 +200,12 @@ FUNCIONALIDAD:
                         <!-- ========== TOTALES ========== -->
                         <div class="totales-section">
                                 <div class="row mb-2">
-                                    <div class="col-6"><strong>Subtotal:</strong></div>
+                                    <div class="col-6"><strong>Subtotal Neto:</strong></div>
                                     <div class="col-6 text-end">$<span id="subtotal">0</span></div>
                                 </div>
                                 
-                                <!-- Toggle para incluir/excluir IVA -->
-                                <div class="row mb-2 align-items-center">
-                                    <div class="col-6">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="toggle-iva" checked>
-                                            <label class="form-check-label" for="toggle-iva">
-                                                <strong>IVA (19%)</strong>
-                                            </label>
-                                        </div>
-                                    </div>
+                                <div class="row mb-2">
+                                    <div class="col-6"><strong>IVA (19%):</strong></div>
                                     <div class="col-6 text-end">$<span id="iva">0</span></div>
                                 </div>
                                 
@@ -356,7 +357,7 @@ FUNCIONALIDAD:
                     <!-- Resumen de totales -->
                     <div class="totales-section mb-3">
                         <div class="row mb-2">
-                            <div class="col-6"><strong>Subtotal:</strong></div>
+                            <div class="col-6"><strong>Subtotal Neto:</strong></div>
                             <div class="col-6 text-end">$<span id="modal-subtotal">0</span></div>
                         </div>
                         <div class="row mb-2">

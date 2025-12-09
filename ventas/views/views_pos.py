@@ -65,10 +65,13 @@ def pos_view(request):
     # --- Paso 1: Obtener todos los productos activos (no eliminados) ---
     # Filtramos solo los productos que:
     # - No han sido eliminados (eliminado__isnull=True)
+    # - Están en estado activo (no en merma, no inactivos) (estado_merma='activo')
     # - Tienen stock disponible (cantidad > 0)
     # - Están ordenados alfabéticamente por nombre
+    # IMPORTANTE: Productos en merma o inactivos NO se muestran en POS
     productos_disponibles = Productos.objects.filter(
-        eliminado__isnull=True,    # Solo productos activos
+        eliminado__isnull=True,    # Solo productos no eliminados
+        estado_merma='activo',     # Solo productos activos (excluye inactivos y en_merma)
         cantidad__gt=0             # Solo con stock disponible
     ).select_related('categorias').order_by('nombre')
     
@@ -203,14 +206,31 @@ def validar_producto_ajax(request, producto_id):
                 'mensaje': 'Este producto ya no está disponible'
             })
         
-        # --- Paso 3: Verificar que tenga stock ---
-        if producto.cantidad <= 0:
+        # --- Paso 3: Verificar que el producto esté activo (no en merma ni inactivo) ---
+        if producto.estado_merma != 'activo':
+            estado_display = dict(Productos.ESTADO_MERMA_CHOICES).get(
+                producto.estado_merma, 
+                producto.estado_merma
+            )
+            mensaje = f'Producto no disponible: {estado_display}'
+            if producto.estado_merma == 'inactivo':
+                mensaje = f'Producto inactivo: {estado_display}'
+            elif producto.estado_merma == 'en_merma':
+                mensaje = f'Producto en merma: {estado_display}'
+            return JsonResponse({
+                'disponible': False,
+                'mensaje': mensaje
+            })
+        
+        # --- Paso 4: Verificar que tenga stock ---
+        from decimal import Decimal
+        if producto.cantidad <= Decimal('0'):
             return JsonResponse({
                 'disponible': False,
                 'mensaje': 'Producto sin stock'
             })
         
-        # --- Paso 4: Verificar fecha de caducidad ---
+        # --- Paso 5: Verificar fecha de caducidad ---
         # Comparamos la fecha de hoy con la fecha de caducidad del producto
         hoy = timezone.now().date()
         if producto.caducidad < hoy:
@@ -319,7 +339,7 @@ def procesar_venta_ajax(request):
         # Antes de procesar, verificamos que TODOS los productos tengan stock
         for item in carrito:
             producto_id = item.get('producto_id')
-            cantidad_solicitada = int(item.get('cantidad', 0))
+            cantidad_solicitada = Decimal(str(item.get('cantidad', 0)))
             
             try:
                 producto = Productos.objects.get(pk=producto_id)
@@ -331,7 +351,7 @@ def procesar_venta_ajax(request):
                         'mensaje': f'El producto "{producto.nombre}" ya no está disponible'
                     }, status=400)
                 
-                # Verificar stock
+                # Verificar stock (permite decimales)
                 if producto.cantidad < cantidad_solicitada:
                     return JsonResponse({
                         'success': False,
@@ -345,33 +365,50 @@ def procesar_venta_ajax(request):
                 }, status=404)
         
         # --- Paso 4: Calcular totales ---
-        total_sin_iva = Decimal('0.00')
+        # IMPORTANTE: El precio del producto YA INCLUYE IVA (precio final al consumidor)
+        # Por lo tanto, debemos calcular:
+        # 1. Total con IVA incluido (precio mostrado × cantidad)
+        # 2. Subtotal sin IVA (total / 1.19)
+        # 3. IVA (subtotal sin IVA × 0.19)
+        # 4. Total final = precio original (con IVA incluido)
         
-        # Sumamos el precio de cada producto del carrito
+        total_con_iva_incluido = Decimal('0.00')
+        
+        # Sumamos el precio de cada producto del carrito (precio ya incluye IVA)
         for item in carrito:
             producto_id = item.get('producto_id')
-            cantidad = int(item.get('cantidad', 0))
-            precio_unitario = Decimal(str(item.get('precio_unitario', 0)))
+            cantidad = Decimal(str(item.get('cantidad', 0)))  # Permite decimales
+            precio_unitario = Decimal(str(item.get('precio_unitario', 0)))  # Precio con IVA incluido
             descuento_item = Decimal(str(item.get('descuento', 0)))
             
-            # Calcular subtotal de este item
-            subtotal_item = cantidad * precio_unitario
+            # Calcular subtotal de este item (precio con IVA incluido)
+            subtotal_item_con_iva = cantidad * precio_unitario
             
             # Aplicar descuento si existe
             if descuento_item > 0:
-                subtotal_item = subtotal_item - (subtotal_item * descuento_item / 100)
+                subtotal_item_con_iva = subtotal_item_con_iva - (subtotal_item_con_iva * descuento_item / 100)
             
-            total_sin_iva += subtotal_item
+            total_con_iva_incluido += subtotal_item_con_iva
         
-        # Aplicar descuento global
-        total_sin_iva = total_sin_iva - descuento_global
+        # Aplicar descuento global (si existe)
+        total_con_iva_incluido = total_con_iva_incluido - descuento_global
         
-        # Calcular IVA (19% en Chile)
+        # Calcular subtotal sin IVA (desglosar el IVA del precio)
+        # Subtotal sin IVA = Total con IVA / 1.19
         IVA_RATE = Decimal('0.19')
+        total_sin_iva = total_con_iva_incluido / (Decimal('1') + IVA_RATE)
+        
+        # Calcular IVA (19% del subtotal sin IVA)
         total_iva = total_sin_iva * IVA_RATE
         
-        # Calcular total con IVA
-        total_con_iva = total_sin_iva + total_iva
+        # Total final = precio original (con IVA incluido)
+        total_con_iva = total_con_iva_incluido
+        
+        # Redondear a 2 decimales
+        from decimal import ROUND_HALF_UP
+        total_sin_iva = total_sin_iva.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        total_iva = total_iva.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        total_con_iva = total_con_iva.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         
         # Calcular vuelto
         vuelto = monto_pagado - total_con_iva
@@ -387,11 +424,11 @@ def procesar_venta_ajax(request):
         # Verificar que todos los productos tengan stock suficiente
         for item in carrito:
             producto_id = item.get('producto_id')
-            cantidad = int(item.get('cantidad', 0))
+            cantidad = Decimal(str(item.get('cantidad', 0)))  # Permite decimales
             
             try:
                 producto = Productos.objects.get(pk=producto_id, eliminado__isnull=True)
-                stock_disponible = producto.cantidad if producto.cantidad else 0
+                stock_disponible = producto.cantidad if producto.cantidad else Decimal('0')
                 
                 if stock_disponible < cantidad:
                     return JsonResponse({
@@ -428,7 +465,7 @@ def procesar_venta_ajax(request):
             # --- Paso 6: Crear los detalles de venta y actualizar stock ---
             for item in carrito:
                 producto_id = item.get('producto_id')
-                cantidad = int(item.get('cantidad', 0))
+                cantidad = Decimal(str(item.get('cantidad', 0)))  # Permite decimales
                 precio_unitario = Decimal(str(item.get('precio_unitario', 0)))
                 descuento_pct = Decimal(str(item.get('descuento', 0)))
                 

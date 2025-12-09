@@ -137,16 +137,16 @@ def recibir_factura_ajax(request, factura_id):
             eliminado__isnull=True
         )
         
-        if factura.estado_recepcion == 'recibida':
+        # Verificar si la factura ya fue recibida (fecha_recepcion no es NULL)
+        if factura.fecha_recepcion:
             return JsonResponse({
                 'success': False,
                 'mensaje': 'Esta factura ya fue recibida anteriormente.'
             }, status=400)
         
         with transaction.atomic():
-            # Marcar como recibida
+            # Marcar como recibida (establecer fecha_recepcion)
             from datetime import date
-            factura.estado_recepcion = 'recibida'
             factura.fecha_recepcion = date.today()
             factura.save()
             
@@ -194,5 +194,84 @@ def recibir_factura_ajax(request, factura_id):
         return JsonResponse({
             'success': False,
             'mensaje': f'Error al recibir factura: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def quitar_recepcion_factura_ajax(request, factura_id):
+    """
+    API AJAX para quitar la fecha de recepción de una factura.
+    Esto permite agregar más productos a la factura.
+    
+    ⚠️ IMPORTANTE: Esto NO revierte el stock. Si ya se actualizó el stock,
+    deberías usar cancelar_recepcion() en su lugar.
+    """
+    try:
+        factura = get_object_or_404(
+            FacturaProveedor.objects.select_related('proveedor'),
+            pk=factura_id,
+            eliminado__isnull=True
+        )
+        
+        if not factura.fecha_recepcion:
+            return JsonResponse({
+                'success': False,
+                'mensaje': 'Esta factura no tiene fecha de recepción.'
+            }, status=400)
+        
+        with transaction.atomic():
+            # Revertir stock de todos los productos antes de quitar la recepción
+            productos_revertidos = []
+            for detalle in factura.detalles.all():
+                try:
+                    producto = detalle.productos
+                    cantidad_revertida = detalle.cantidad
+                    
+                    # Revertir cantidad y stock_actual
+                    producto.cantidad = max(Decimal('0.00'), producto.cantidad - cantidad_revertida)
+                    if producto.stock_actual is not None:
+                        producto.stock_actual = max(Decimal('0.00'), producto.stock_actual - cantidad_revertida)
+                    producto.save()
+                    
+                    # Crear movimiento de salida para trazabilidad
+                    try:
+                        MovimientosInventario.objects.create(
+                            tipo_movimiento='salida',
+                            cantidad=cantidad_revertida,
+                            productos=producto,
+                            origen='devolucion',
+                            referencia_id=factura.id,
+                            tipo_referencia='factura_proveedor',
+                            observaciones=f'Reversión por quitar recepción de factura {factura.numero_factura}'
+                        )
+                    except Exception as e:
+                        logger.warning(f'Error al crear movimiento de inventario para producto {producto.id}: {str(e)}')
+                    
+                    productos_revertidos.append({
+                        'nombre': producto.nombre,
+                        'cantidad': cantidad_revertida,
+                        'stock_actual': producto.cantidad
+                    })
+                except Exception as e:
+                    logger.error(f'Error al revertir stock de producto en detalle {detalle.id}: {str(e)}')
+            
+            # Quitar fecha de recepción
+            factura.fecha_recepcion = None
+            factura.save()
+            
+            logger.info(f'Fecha de recepción quitada de factura {factura.id}. {len(productos_revertidos)} productos revertidos.')
+        
+        return JsonResponse({
+            'success': True,
+            'mensaje': f'Fecha de recepción quitada exitosamente. Stock de {len(productos_revertidos)} productos revertido. Ahora puedes agregar productos a la factura.',
+            'productos_revertidos': productos_revertidos
+        })
+        
+    except Exception as e:
+        logger.error(f'Error al quitar recepción de factura: {str(e)}', exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'mensaje': f'Error al quitar recepción: {str(e)}'
         }, status=500)
 

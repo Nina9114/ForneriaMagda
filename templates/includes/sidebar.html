@@ -19,11 +19,6 @@
 </a>
 </li>
 <li class="sidebar-item">
-<a href="{% url 'agregar_producto' %}" class="sidebar-link{% if active_page == 'agregar_producto' %} active{% endif %}">
-<span>➕</span> Agregar Producto
-</a>
-</li>
-<li class="sidebar-item">
 <a href="{% url 'movimientos' %}" class="sidebar-link{% if active_page == 'movimientos' %} active{% endif %}">
 <span>📊</span> Movimientos
 </a>
@@ -56,6 +51,11 @@
 <li class="sidebar-item">
 <a href="{% url 'pagos_proveedores_list' %}" class="sidebar-link{% if active_page == 'pagos_proveedores' %} active{% endif %}">
 <span>💳</span> Pagos Proveedores
+</a>
+</li>
+<li class="sidebar-item">
+<a href="{% url 'produccion_list' %}" class="sidebar-link{% if active_page == 'produccion' %} active{% endif %}">
+<span>🍞</span> Producción
 </a>
 </li>
 {% if request.user.is_authenticated and request.user.is_superuser %}

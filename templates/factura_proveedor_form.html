@@ -44,37 +44,37 @@
                     </div>
                     
                     <div class="row mb-3">
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label">Fecha de Factura *</label>
                             <input type="date" name="fecha_factura" class="form-control" value="{% if factura.fecha_factura %}{{ factura.fecha_factura|date:'Y-m-d' }}{% else %}{{ 'now'|date:'Y-m-d' }}{% endif %}" required>
+                            <small class="form-text text-muted">Fecha en que el proveedor emitió la factura (fecha de la factura física)</small>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label">Fecha de Vencimiento</label>
                             <input type="date" name="fecha_vencimiento" class="form-control" value="{% if factura.fecha_vencimiento %}{{ factura.fecha_vencimiento|date:'Y-m-d' }}{% endif %}">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Fecha de Recepción</label>
-                            <input type="date" name="fecha_recepcion" class="form-control" value="{% if factura.fecha_recepcion %}{{ factura.fecha_recepcion|date:'Y-m-d' }}{% endif %}">
+                            <small class="form-text text-muted">Fecha límite para pagar la factura (opcional, pero recomendado para control de pagos)</small>
                         </div>
                     </div>
                     
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label">Estado de Pago</label>
-                            <select name="estado_pago" class="form-select">
+                            <select name="estado_pago" class="form-select" id="estado_pago">
                                 <option value="pendiente" {% if factura.estado_pago == 'pendiente' or not factura %}selected{% endif %}>Pendiente</option>
                                 <option value="parcial" {% if factura.estado_pago == 'parcial' %}selected{% endif %}>Pago Parcial</option>
                                 <option value="pagado" {% if factura.estado_pago == 'pagado' %}selected{% endif %}>Pagado</option>
-                                <option value="cancelado" {% if factura.estado_pago == 'cancelado' %}selected{% endif %}>Cancelado</option>
+                                <option value="atrasado" {% if factura.estado_pago == 'atrasado' %}selected{% endif %}>Atrasado</option>
+                                <option value="cancelado" {% if factura.estado_pago == 'cancelado' %}selected{% endif %}>Cancelado/Anulado</option>
                             </select>
+                            <small class="form-text text-muted">
+                                <strong>Cancelado/Anulado:</strong> Factura anulada que no se pagará (por error, devolución, etc.)
+                            </small>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Estado de Recepción</label>
-                            <select name="estado_recepcion" class="form-select">
-                                <option value="pendiente" {% if factura.estado_recepcion == 'pendiente' or not factura %}selected{% endif %}>Pendiente</option>
-                                <option value="recibida" {% if factura.estado_recepcion == 'recibida' %}selected{% endif %}>Recibida</option>
-                                <option value="cancelada" {% if factura.estado_recepcion == 'cancelada' %}selected{% endif %}>Cancelada</option>
-                            </select>
+                            <label class="form-label">Fecha de Recepción</label>
+                            <input type="date" name="fecha_recepcion" class="form-control" 
+                                   value="{% if factura.fecha_recepcion %}{{ factura.fecha_recepcion|date:'Y-m-d' }}{% endif %}">
+                            <small class="form-text text-muted">Dejar vacío si aún no se ha recibido</small>
                         </div>
                     </div>
                     
@@ -82,20 +82,22 @@
                     <h4 class="mb-3 mt-4">Totales</h4>
                     <div class="row mb-3">
                         <div class="col-md-3">
-                            <label class="form-label">Subtotal sin IVA</label>
-                            <input type="number" name="subtotal_sin_iva" id="subtotal_sin_iva" class="form-control" step="0.01" value="{{ factura.subtotal_sin_iva|default:'0.00' }}" onchange="calcularTotales()">
+                            <label class="form-label">Subtotal sin IVA (Neto)</label>
+                            <input type="number" name="subtotal_sin_iva" id="subtotal_sin_iva" class="form-control" step="0.01" value="{% if factura.subtotal_sin_iva is not None %}{{ factura.subtotal_sin_iva|stringformat:".2f" }}{% else %}0.00{% endif %}" onchange="calcularTotales()">
+                            <small class="form-text text-muted">Monto sin IVA (neto)</small>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">IVA (19%)</label>
-                            <input type="number" name="total_iva" id="total_iva" class="form-control" step="0.01" value="{{ factura.total_iva|default:'0.00' }}" readonly>
+                            <input type="number" name="total_iva" id="total_iva" class="form-control" step="0.01" value="{% if factura.total_iva is not None %}{{ factura.total_iva|stringformat:".2f" }}{% else %}0.00{% endif %}" readonly>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">Descuento</label>
-                            <input type="number" name="descuento" id="descuento" class="form-control" step="0.01" value="{{ factura.descuento|default:'0.00' }}" onchange="calcularTotales()">
+                            <label class="form-label">Descuento (en pesos)</label>
+                            <input type="number" name="descuento" id="descuento" class="form-control" step="0.01" value="{% if factura.descuento is not None %}{{ factura.descuento|stringformat:".2f" }}{% else %}0.00{% endif %}" onchange="calcularTotales()">
+                            <small class="form-text text-muted">Monto fijo en pesos (ej: 1000)</small>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Total con IVA</label>
-                            <input type="number" name="total_con_iva" id="total_con_iva" class="form-control" step="0.01" value="{{ factura.total_con_iva|default:'0.00' }}" readonly>
+                            <input type="number" name="total_con_iva" id="total_con_iva" class="form-control" step="0.01" value="{% if factura.total_con_iva is not None %}{{ factura.total_con_iva|stringformat:".2f" }}{% else %}0.00{% endif %}" readonly>
                         </div>
                     </div>
                     
@@ -130,6 +132,14 @@ function calcularTotales() {
     document.getElementById('total_iva').value = iva.toFixed(2);
     document.getElementById('total_con_iva').value = Math.max(0, total).toFixed(2);
 }
+
+// Calcular totales automáticamente al cargar la página si hay valores
+document.addEventListener('DOMContentLoaded', function() {
+    const subtotalInput = document.getElementById('subtotal_sin_iva');
+    if (subtotalInput && subtotalInput.value && parseFloat(subtotalInput.value) > 0) {
+        calcularTotales();
+    }
+});
 </script>
 {% endblock %}
 
