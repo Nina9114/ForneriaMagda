@@ -664,6 +664,29 @@ class DetalleFacturaProveedor(models.Model):
     )
     
     # ============================================================
+    # INFORMACIÓN DEL LOTE
+    # ============================================================
+    fecha_vencimiento_producto = models.DateField(
+        blank=True,
+        null=True,
+        help_text='Fecha de vencimiento del lote recibido (si se especifica, prevalece sobre la fecha del producto)'
+    )
+    
+    lote = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text='Número de lote del producto recibido'
+    )
+    
+    observaciones = models.CharField(
+        max_length=300,
+        blank=True,
+        null=True,
+        help_text='Observaciones sobre este detalle'
+    )
+    
+    # ============================================================
     # MÉTODOS AUXILIARES
     # ============================================================
     def __str__(self):

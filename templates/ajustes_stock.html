@@ -108,7 +108,7 @@
                             </div>
                             
                             <!-- Stock Actual (solo lectura) -->
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-3 mb-3">
                                 <label class="form-label" style="color: #ffffff;">
                                     <i class="bi bi-info-circle"></i> Stock Actual
                                 </label>
@@ -119,6 +119,20 @@
                                     readonly
                                     placeholder="Seleccione un producto"
                                 >
+                            </div>
+                            
+                            <!-- Fecha de Caducidad (solo para entradas) -->
+                            <div class="col-md-3 mb-3" id="fecha-caducidad-container" style="display: none;">
+                                <label for="fecha_caducidad" class="form-label" style="color: #ffffff;">
+                                    <i class="bi bi-calendar-x"></i> Fecha Caducidad
+                                </label>
+                                <input 
+                                    type="date" 
+                                    id="fecha_caducidad" 
+                                    name="fecha_caducidad" 
+                                    class="form-control"
+                                >
+                                <small class="text-muted">Opcional (solo entradas)</small>
                             </div>
                         </div>
                         
@@ -179,8 +193,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Validar cantidad según tipo
+    // Mostrar/ocultar campo de fecha de caducidad según tipo
+    const fechaCaducidadContainer = document.getElementById('fecha-caducidad-container');
     tipoSelect.addEventListener('change', function() {
+        if (this.value === 'entrada') {
+            fechaCaducidadContainer.style.display = 'block';
+        } else {
+            fechaCaducidadContainer.style.display = 'none';
+        }
+        
         if (this.value === 'salida') {
             cantidadInput.setAttribute('max', stockActualInput.value || '0');
         } else {
@@ -196,7 +217,8 @@ document.addEventListener('DOMContentLoaded', function() {
             producto_id: productoSelect.value,
             tipo: tipoSelect.value,
             cantidad: cantidadInput.value,
-            motivo: document.getElementById('motivo').value || 'Ajuste manual'
+            motivo: document.getElementById('motivo').value || 'Ajuste manual',
+            fecha_caducidad: document.getElementById('fecha_caducidad').value || null
         };
 
         // Validaciones

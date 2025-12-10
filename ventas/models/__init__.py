@@ -28,3 +28,9 @@ from .proveedores import Proveedor, FacturaProveedor, DetalleFacturaProveedor, P
 
 # --- Modelos de Lotes (NUEVO) ---
 from .lotes import Lote
+
+# --- Modelos de Historial de Merma (NUEVO) ---
+from .historial_merma import HistorialMerma
+
+# --- Modelos de Historial de Boletas (NUEVO) ---
+from .historial_boletas import HistorialBoletas

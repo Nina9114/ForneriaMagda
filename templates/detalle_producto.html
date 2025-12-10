@@ -93,7 +93,11 @@
                                     <td><strong>Cantidad en Stock:</strong></td>
                                     <td>
                                         <span class="badge {% if cantidad_desde_lotes <= producto.stock_minimo|default:5 %}bg-danger{% elif cantidad_desde_lotes >= producto.stock_maximo|default:100 %}bg-success{% else %}bg-primary{% endif %} fs-6">
-                                            {{ cantidad_desde_lotes }} unidades
+                                            {% if producto.unidad_stock == 'unidad' %}
+                                                {{ cantidad_desde_lotes|floatformat:"0" }} {{ producto.get_unidad_stock_display }}
+                                            {% else %}
+                                                {{ cantidad_desde_lotes|floatformat:"3" }} {{ producto.get_unidad_stock_display }}
+                                            {% endif %}
                                         </span>
                                         {% if lotes %}
                                             <small class="text-muted d-block mt-1">
@@ -109,10 +113,6 @@
                                 <tr>
                                     <td><strong>Stock Máximo:</strong></td>
                                     <td>{{ producto.stock_maximo|default:"No definido" }}</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Stock Actual:</strong></td>
-                                    <td>{{ producto.stock_actual|default:"—" }}</td>
                                 </tr>
                                 <tr>
                                     <td><strong>Estado:</strong></td>
@@ -164,19 +164,18 @@
                                                 <strong>Historial de Merma:</strong><br>
                                                 <small class="text-muted">
                                                     {% if producto.cantidad_merma and producto.cantidad_merma > 0 %}
-                                                        <strong>Cantidad perdida:</strong> {{ producto.cantidad_merma }} unidad(es)<br>
+                                                        <strong>Cantidad perdida:</strong> 
+                                                        {% if producto.unidad_stock == 'unidad' %}
+                                                            {{ producto.cantidad_merma|floatformat:"0" }} {{ producto.get_unidad_stock_display }}
+                                                        {% else %}
+                                                            {{ producto.cantidad_merma|floatformat:"3" }} {{ producto.get_unidad_stock_display }}
+                                                        {% endif %}
+                                                        <br>
                                                     {% endif %}
                                                     <strong>Motivo:</strong> {{ producto.motivo_merma|default:"No especificado" }}<br>
                                                     <strong>Fecha:</strong> {{ producto.fecha_merma|date:"d/m/Y H:i"|default:"N/A" }}
                                                 </small>
                                             </div>
-                                            <form method="post" action="{% url 'eliminar_registro_merma' producto.id %}" style="display: inline;">
-                                                {% csrf_token %}
-                                                <button type="submit" class="btn btn-sm btn-outline-danger" 
-                                                        onclick="return confirm('¿Eliminar el registro de merma? Esto no afectará el estado actual del producto.');">
-                                                    <i class="bi bi-trash"></i> Eliminar Registro
-                                                </button>
-                                            </form>
                                         </div>
                                     </td>
                                 </tr>

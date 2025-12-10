@@ -180,9 +180,14 @@ def mover_merma_masivo(request):
         
         # Importar timezone para fecha_merma
         from django.utils import timezone
+        from django.db import transaction
+        from decimal import Decimal
+        import logging
         
-        # Importar Alertas para resolver alertas automáticamente
-        from ventas.models import Alertas
+        logger = logging.getLogger('ventas')
+        
+        # Importar Alertas y HistorialMerma
+        from ventas.models import Alertas, HistorialMerma
         
         # Actualizar el estado de los productos seleccionados
         productos_actualizados = Productos.objects.filter(
@@ -190,20 +195,44 @@ def mover_merma_masivo(request):
             eliminado__isnull=True  # Solo productos no eliminados
         )
         
-        # NUEVA LÓGICA: Limpiar "contenido" del producto (cantidad, caducidad, elaboración)
-        # El SKU permanece pero sin stock ni fechas (ese lote ya no existe)
+        # NUEVA LÓGICA: Crear registro en HistorialMerma y actualizar producto
         cantidad_actualizados = 0
-        for producto in productos_actualizados:
-            # Guardar la cantidad que se va a merma antes de ponerla en 0
-            producto.cantidad_merma = producto.cantidad if producto.cantidad > 0 else 0
-            producto.cantidad = 0  # Reducir cantidad a 0
-            producto.caducidad = None  # Limpiar caducidad (ese lote ya no existe)
-            producto.elaboracion = None  # Limpiar elaboración (ese lote ya no existe)
-            producto.estado_merma = 'en_merma'  # Estado especial para productos en merma
-            producto.motivo_merma = motivo_merma  # Registrar motivo
-            producto.fecha_merma = timezone.now()  # Registrar fecha
-            producto.save()
-            cantidad_actualizados += 1
+        historial_creado = False
+        
+        with transaction.atomic():
+            for producto in productos_actualizados:
+                # Guardar la cantidad que se va a merma antes de ponerla en 0
+                cantidad_original = producto.cantidad if producto.cantidad else Decimal('0')
+                
+                # Para HistorialMerma, usar mínimo 0.001 si la cantidad es 0 (requisito del modelo)
+                cantidad_merma_historial = cantidad_original if cantidad_original > 0 else Decimal('0.001')
+                
+                # Crear registro en HistorialMerma (siempre intentar crear)
+                try:
+                    registro_merma = HistorialMerma.objects.create(
+                        producto=producto,
+                        cantidad_merma=cantidad_merma_historial,
+                        motivo_merma=motivo_merma,
+                        fecha_merma=timezone.now(),
+                        activo=True
+                    )
+                    historial_creado = True
+                    logger.info(f'Registro de merma creado: ID {registro_merma.id} para producto {producto.id} - Cantidad: {cantidad_merma_historial}')
+                except Exception as e:
+                    # Si hay error, registrar pero continuar
+                    logger.error(f'Error al crear registro en HistorialMerma: {str(e)}', exc_info=True)
+                    # Continuar de todas formas para actualizar el producto
+                
+                # Actualizar producto: limpiar "contenido" pero mantener SKU
+                producto.cantidad = 0  # Reducir cantidad a 0
+                producto.caducidad = None  # Limpiar caducidad (ese lote ya no existe)
+                producto.elaboracion = None  # Limpiar elaboración (ese lote ya no existe)
+                producto.estado_merma = 'en_merma'  # Estado especial para productos en merma
+                producto.motivo_merma = motivo_merma  # Registrar motivo
+                producto.fecha_merma = timezone.now()  # Registrar fecha
+                producto.cantidad_merma = cantidad_original  # Guardar cantidad original (puede ser 0)
+                producto.save()
+                cantidad_actualizados += 1
         
         # Resolver automáticamente todas las alertas activas de estos productos
         # ya que están en merma y no necesitan alertas

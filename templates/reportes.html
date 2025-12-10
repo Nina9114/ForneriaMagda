@@ -1,576 +1,132 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block body_class %}dark-gold-theme{% endblock %}
+
 {% block contenido %}
 <!-- ================================================================ -->
 <!-- =                                                              = -->
-<!-- =              PÁGINA DEL SISTEMA DE REPORTES                  = -->
+<!-- =              PORTAL DE REPORTES                              = -->
 <!-- =                                                              = -->
 <!-- ================================================================ -->
-<!--
-    Esta página permite generar reportes personalizados.
-    
-    FUNCIONALIDADES:
-    - Seleccionar rango de fechas (desde - hasta)
-    - Elegir qué tablas incluir en el reporte
-    - Ver reporte generado en pantalla
-    - Imprimir reporte (Ctrl+P)
--->
 
 <div class="dashboard-main-container">
-    <!-- ============================================================ -->
-    <!-- SIDEBAR DE NAVEGACIÓN                                        -->
-    <!-- ============================================================ -->
     {% include 'includes/sidebar.html' with active_page='reportes' %}
 
-    <!-- ============================================================ -->
-    <!-- CONTENIDO PRINCIPAL                                          -->
-    <!-- ============================================================ -->
     <div class="dashboard-content-wrapper">
-        <!-- Header con título -->
         <header class="dashboard-header">
-            <h1 class="dashboard-main-title">Sistema de Reportes</h1>
+            <h1 class="dashboard-main-title">
+                <i class="bi bi-graph-up-arrow"></i> Sistema de Reportes
+            </h1>
         </header>
 
-        <!-- Contenido de la página -->
-        <main class="dashboard-content reportes-container">
+        <main class="dashboard-content">
             
             <!-- ============================================ -->
-            <!-- SECCIÓN DE REPORTES AVANZADOS                -->
+            <!-- SECCIÓN DE REPORTES DISPONIBLES              -->
             <!-- ============================================ -->
-            <div class="reportes-avanzados-card mb-4" style="background: rgba(0, 0, 0, 0.3); padding: 25px; border-radius: 10px; border: 1px solid rgba(255, 215, 0, 0.3);">
-                <h3 style="color: #ffd700; margin-bottom: 20px;">
-                    <i class="bi bi-graph-up-arrow"></i> Reportes Avanzados
-                </h3>
-                <div class="row">
-                    <!-- Reporte de Ventas -->
-                    <div class="col-md-4 mb-3">
-                        <a href="{% url 'reporte_ventas' %}" class="btn btn-outline-warning w-100" style="padding: 15px; text-align: left;">
-                            <i class="bi bi-cart-check" style="font-size: 24px; margin-right: 10px;"></i>
-                            <div>
-                                <strong>Reporte de Ventas</strong><br>
-                                <small>Filtros avanzados y exportación CSV</small>
+            <div class="card mb-4" style="background: rgba(26, 26, 26, 0.8); border: 2px solid #ffd700;">
+                <div class="card-header" style="background: rgba(255, 215, 0, 0.1); border-bottom: 2px solid #ffd700;">
+                    <h5 class="mb-0 text-warning">
+                        <i class="bi bi-list-check"></i> Reportes Disponibles
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Reporte de Ventas -->
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100" style="background: rgba(26, 26, 26, 0.6); border: 1px solid #ffd700;">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-cart-check" style="font-size: 48px; color: #ffd700; margin-bottom: 15px;"></i>
+                                    <h5 class="text-warning mb-3">Reporte de Ventas</h5>
+                                    <p class="text-light mb-3">
+                                        Filtros avanzados por fecha, cliente y canal. 
+                                        Incluye totales, IVA y exportación a Excel/PDF.
+                                    </p>
+                                    <a href="{% url 'reporte_ventas' %}" class="btn btn-warning w-100">
+                                        <i class="bi bi-arrow-right-circle"></i> Ver Reporte
+                                    </a>
+                                </div>
                             </div>
-                        </a>
-                    </div>
-                    
-                    <!-- Top Productos -->
-                    <div class="col-md-4 mb-3">
-                        <a href="{% url 'top_productos' %}" class="btn btn-outline-warning w-100" style="padding: 15px; text-align: left;">
-                            <i class="bi bi-trophy" style="font-size: 24px; margin-right: 10px;"></i>
-                            <div>
-                                <strong>Top Productos</strong><br>
-                                <small>Ranking por cantidad y monto</small>
+                        </div>
+                        
+                        <!-- Top Productos -->
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100" style="background: rgba(26, 26, 26, 0.6); border: 1px solid #ffd700;">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-trophy" style="font-size: 48px; color: #ffd700; margin-bottom: 15px;"></i>
+                                    <h5 class="text-warning mb-3">Top Productos</h5>
+                                    <p class="text-light mb-3">
+                                        Ranking de productos más vendidos por cantidad 
+                                        o monto neto. Filtro por fechas.
+                                    </p>
+                                    <a href="{% url 'top_productos' %}" class="btn btn-warning w-100">
+                                        <i class="bi bi-arrow-right-circle"></i> Ver Reporte
+                                    </a>
+                                </div>
                             </div>
-                        </a>
-                    </div>
-                    
-                    <!-- Reporte de Inventario -->
-                    <div class="col-md-4 mb-3">
-                        <a href="{% url 'reporte_inventario' %}" class="btn btn-outline-warning w-100" style="padding: 15px; text-align: left;">
-                            <i class="bi bi-box-seam" style="font-size: 24px; margin-right: 10px;"></i>
-                            <div>
-                                <strong>Reporte de Inventario</strong><br>
-                                <small>Valorización por categoría</small>
+                        </div>
+                        
+                        <!-- Reporte de Inventario -->
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100" style="background: rgba(26, 26, 26, 0.6); border: 1px solid #ffd700;">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-box-seam" style="font-size: 48px; color: #ffd700; margin-bottom: 15px;"></i>
+                                    <h5 class="text-warning mb-3">Reporte de Inventario</h5>
+                                    <p class="text-light mb-3">
+                                        Valorización del inventario por categoría. 
+                                        Incluye stock actual y valor total.
+                                    </p>
+                                    <a href="{% url 'reporte_inventario' %}" class="btn btn-warning w-100">
+                                        <i class="bi bi-arrow-right-circle"></i> Ver Reporte
+                                    </a>
+                                </div>
                             </div>
-                        </a>
+                        </div>
                     </div>
                 </div>
             </div>
-            
+
             <!-- ============================================ -->
-            <!-- SECCIÓN DE FILTROS Y GENERACIÓN              -->
+            <!-- INFORMACIÓN ADICIONAL                        -->
             <!-- ============================================ -->
-            <div class="reportes-filtros-card">
-                <h3><i class="bi bi-funnel"></i> Configurar Reporte</h3>
-                
-                <form method="get" action="{% url 'reportes' %}">
-                    <!-- Input oculto para indicar que se generó el reporte -->
-                    <input type="hidden" name="generar" value="1">
-                    
-                    <!-- ============================================ -->
-                    <!-- PASO 1: Seleccionar Rango de Fechas          -->
-                    <!-- ============================================ -->
-                    <div class="row mb-4">
-                        <div class="col-md-12 mb-3">
-                            <h5 style="color: #ffd700; font-size: 16px; margin-bottom: 15px;">
-                                <i class="bi bi-calendar-range"></i> Paso 1: Seleccionar Período
-                            </h5>
-                        </div>
-                        
-                        <!-- Fecha Desde -->
+            <div class="card" style="background: rgba(26, 26, 26, 0.8); border: 1px solid #ffd700;">
+                <div class="card-header" style="background: rgba(255, 215, 0, 0.1); border-bottom: 1px solid #ffd700;">
+                    <h5 class="mb-0 text-warning">
+                        <i class="bi bi-info-circle"></i> Información
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
                         <div class="col-md-6">
-                            <label for="fecha_desde" class="form-label" style="color: #ffffff;">
-                                Fecha Desde:
-                            </label>
-                            <input 
-                                type="date" 
-                                id="fecha_desde" 
-                                name="fecha_desde" 
-                                class="form-control"
-                                required
-                                value="{{ request.GET.fecha_desde }}"
-                            >
+                            <h6 class="text-warning mb-3">
+                                <i class="bi bi-file-earmark-excel"></i> Exportación
+                            </h6>
+                            <p class="text-light">
+                                Todos los reportes pueden exportarse a:
+                            </p>
+                            <ul class="text-light">
+                                <li><strong>Excel (XLSX):</strong> Para análisis en hojas de cálculo</li>
+                                <li><strong>PDF:</strong> Para impresión y archivo</li>
+                                <li><strong>CSV:</strong> Para importación a otros sistemas</li>
+                            </ul>
                         </div>
-                        
-                        <!-- Fecha Hasta -->
                         <div class="col-md-6">
-                            <label for="fecha_hasta" class="form-label" style="color: #ffffff;">
-                                Fecha Hasta:
-                            </label>
-                            <input 
-                                type="date" 
-                                id="fecha_hasta" 
-                                name="fecha_hasta" 
-                                class="form-control"
-                                required
-                                value="{{ request.GET.fecha_hasta }}"
-                            >
+                            <h6 class="text-warning mb-3">
+                                <i class="bi bi-printer"></i> Impresión
+                            </h6>
+                            <p class="text-light">
+                                Los reportes están optimizados para impresión:
+                            </p>
+                            <ul class="text-light">
+                                <li>Formato PDF completo sin cortes</li>
+                                <li>Diseño profesional y legible</li>
+                                <li>Incluye encabezados y totales</li>
+                            </ul>
                         </div>
                     </div>
-                    
-                    <!-- ============================================ -->
-                    <!-- PASO 2: Seleccionar Tablas a Incluir         -->
-                    <!-- ============================================ -->
-                    <div class="row mb-4">
-                        <div class="col-md-12 mb-3">
-                            <h5 style="color: #ffd700; font-size: 16px; margin-bottom: 15px;">
-                                <i class="bi bi-table"></i> Paso 2: Seleccionar Datos a Incluir
-                            </h5>
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <!-- Checkbox: Ventas -->
-                            <div class="reportes-checkbox">
-                                <input 
-                                    type="checkbox" 
-                                    id="incluir_ventas" 
-                                    name="incluir_ventas"
-                                    {% if request.GET.incluir_ventas %}checked{% endif %}
-                                >
-                                <label for="incluir_ventas">
-                                    <i class="bi bi-cart-check"></i> Reporte de Ventas
-                                </label>
-                            </div>
-                            
-                            <!-- Checkbox: Productos -->
-                            <div class="reportes-checkbox">
-                                <input 
-                                    type="checkbox" 
-                                    id="incluir_productos" 
-                                    name="incluir_productos"
-                                    {% if request.GET.incluir_productos %}checked{% endif %}
-                                >
-                                <label for="incluir_productos">
-                                    <i class="bi bi-box-seam"></i> Reporte de Inventario
-                                </label>
-                            </div>
-                            
-                            <!-- Checkbox: Merma -->
-                            <div class="reportes-checkbox">
-                                <input 
-                                    type="checkbox" 
-                                    id="incluir_merma" 
-                                    name="incluir_merma"
-                                    {% if request.GET.incluir_merma %}checked{% endif %}
-                                >
-                                <label for="incluir_merma">
-                                    <i class="bi bi-exclamation-triangle"></i> Reporte de Merma
-                                </label>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <!-- Checkbox: Movimientos -->
-                            <div class="reportes-checkbox">
-                                <input 
-                                    type="checkbox" 
-                                    id="incluir_movimientos" 
-                                    name="incluir_movimientos"
-                                    {% if request.GET.incluir_movimientos %}checked{% endif %}
-                                >
-                                <label for="incluir_movimientos">
-                                    <i class="bi bi-arrow-left-right"></i> Reporte de Movimientos
-                                </label>
-                            </div>
-                            
-                            <!-- Checkbox: Alertas -->
-                            <div class="reportes-checkbox">
-                                <input 
-                                    type="checkbox" 
-                                    id="incluir_alertas" 
-                                    name="incluir_alertas"
-                                    {% if request.GET.incluir_alertas %}checked{% endif %}
-                                >
-                                <label for="incluir_alertas">
-                                    <i class="bi bi-bell"></i> Reporte de Alertas
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- ============================================ -->
-                    <!-- BOTÓN DE GENERAR REPORTE                     -->
-                    <!-- ============================================ -->
-                    <div class="text-center mt-4">
-                        <button type="submit" class="btn-generar-reporte">
-                            <i class="bi bi-file-earmark-bar-graph"></i> Generar Reporte
-                        </button>
-                    </div>
-                </form>
+                </div>
             </div>
-
-            <!-- ============================================ -->
-            <!-- SECCIÓN DE REPORTE GENERADO                  -->
-            <!-- ============================================ -->
-            {% if reporte_generado %}
-            <div class="reporte-resultado">
-                
-                <!-- ============================================ -->
-                <!-- ENCABEZADO DEL REPORTE                       -->
-                <!-- ============================================ -->
-                <div class="reporte-header">
-                    <h2><i class="bi bi-file-earmark-text"></i> Reporte General - Fornería</h2>
-                    <p class="reporte-periodo">
-                        <strong>Período:</strong> 
-                        {{ datos_reporte.fecha_desde|date:"d/m/Y" }} - 
-                        {{ datos_reporte.fecha_hasta|date:"d/m/Y" }}
-                    </p>
-                    <p class="reporte-fecha-generacion">
-                        Generado el {{ datos_reporte.fecha_generacion|date:"d/m/Y H:i" }}
-                    </p>
-                </div>
-
-                <!-- ============================================ -->
-                <!-- MINI-REPORTE: VENTAS                         -->
-                <!-- ============================================ -->
-                {% if datos_reporte.ventas %}
-                <div class="mini-reporte">
-                    <h3><i class="bi bi-cart-check"></i> Reporte de Ventas</h3>
-                    
-                    <!-- Estadísticas Resumen -->
-                    <div class="reporte-stats">
-                        <div class="stat-item">
-                            <div class="stat-value">${{ datos_reporte.ventas.total|floatformat:"0" }}</div>
-                            <div class="stat-label">Total Vendido</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value">{{ datos_reporte.ventas.cantidad }}</div>
-                            <div class="stat-label">Transacciones</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value">${{ datos_reporte.ventas.promedio|floatformat:"0" }}</div>
-                            <div class="stat-label">Promedio por Venta</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Tabla de Ventas -->
-                    <div class="table-responsive">
-                        <table class="table reporte-tabla">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Folio</th>
-                                    <th>Cliente</th>
-                                    <th>Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for venta in datos_reporte.ventas.lista %}
-                                <tr>
-                                    <td>{{ venta.fecha|date:"d/m/Y H:i" }}</td>
-                                    <td>{{ venta.folio }}</td>
-                                    <td>{{ venta.clientes.nombre }}</td>
-                                    <td><strong>${{ venta.total_con_iva|floatformat:"0" }}</strong></td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="4" class="sin-datos">
-                                        No hay ventas en este período
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                {% endif %}
-
-                <!-- ============================================ -->
-                <!-- MINI-REPORTE: PRODUCTOS                      -->
-                <!-- ============================================ -->
-                {% if datos_reporte.productos %}
-                <div class="mini-reporte">
-                    <h3><i class="bi bi-box-seam"></i> Reporte de Inventario</h3>
-                    
-                    <!-- Estadísticas Resumen -->
-                    <div class="reporte-stats">
-                        <div class="stat-item">
-                            <div class="stat-value">{{ datos_reporte.productos.total }}</div>
-                            <div class="stat-label">Productos Activos</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value">{{ datos_reporte.productos.total_stock }}</div>
-                            <div class="stat-label">Unidades en Stock</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value">${{ datos_reporte.productos.valor_inventario|floatformat:"0" }}</div>
-                            <div class="stat-label">Valor Inventario</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" style="color: #dc3545;">{{ datos_reporte.productos.bajo_stock }}</div>
-                            <div class="stat-label">Stock Bajo</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Tabla de Productos -->
-                    <div class="table-responsive">
-                        <table class="table reporte-tabla">
-                            <thead>
-                                <tr>
-                                    <th>Producto</th>
-                                    <th>Precio</th>
-                                    <th>Cantidad</th>
-                                    <th>Caducidad</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for producto in datos_reporte.productos.lista %}
-                                <tr>
-                                    <td><strong>{{ producto.nombre }}</strong></td>
-                                    <td>${{ producto.precio|floatformat:"0" }}</td>
-                                    <td>{{ producto.cantidad }}</td>
-                                    <td>{% if producto.caducidad %}{{ producto.caducidad|date:"d/m/Y" }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="4" class="sin-datos">
-                                        No hay productos activos
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                {% endif %}
-
-                <!-- ============================================ -->
-                <!-- MINI-REPORTE: MERMA                          -->
-                <!-- ============================================ -->
-                {% if datos_reporte.merma %}
-                <div class="mini-reporte">
-                    <h3><i class="bi bi-exclamation-triangle"></i> Reporte de Merma</h3>
-                    
-                    <!-- Estadísticas Resumen -->
-                    <div class="reporte-stats">
-                        <div class="stat-item">
-                            <div class="stat-value">{{ datos_reporte.merma.total }}</div>
-                            <div class="stat-label">Productos en Merma</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" style="color: #dc3545;">{{ datos_reporte.merma.vencido }}</div>
-                            <div class="stat-label">Vencidos</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" style="color: #fd7e14;">{{ datos_reporte.merma.deteriorado }}</div>
-                            <div class="stat-label">Deteriorados</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" style="color: #6c757d;">{{ datos_reporte.merma.danado }}</div>
-                            <div class="stat-label">Dañados</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" style="color: #dc3545;">${{ datos_reporte.merma.perdida_total|floatformat:"0" }}</div>
-                            <div class="stat-label">Pérdida Total</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Tabla de Merma -->
-                    <div class="table-responsive">
-                        <table class="table reporte-tabla">
-                            <thead>
-                                <tr>
-                                    <th>Producto</th>
-                                    <th>Estado</th>
-                                    <th>Cantidad</th>
-                                    <th>Pérdida</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for producto in datos_reporte.merma.lista %}
-                                <tr>
-                                    <td><strong>{{ producto.nombre }}</strong></td>
-                                    <td>
-                                        {% if producto.estado_merma == 'vencido' %}
-                                            <span class="badge bg-danger">Vencido</span>
-                                        {% elif producto.estado_merma == 'deteriorado' %}
-                                            <span class="badge bg-warning">Deteriorado</span>
-                                        {% elif producto.estado_merma == 'dañado' %}
-                                            <span class="badge bg-secondary">Dañado</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ producto.cantidad }}</td>
-                                    <td style="color: #dc3545; font-weight: bold;">
-                                        ${% widthratio producto.cantidad producto.precio 1 %}
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="4" class="sin-datos">
-                                        No hay productos en merma
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                {% endif %}
-
-                <!-- ============================================ -->
-                <!-- MINI-REPORTE: MOVIMIENTOS                    -->
-                <!-- ============================================ -->
-                {% if datos_reporte.movimientos %}
-                <div class="mini-reporte">
-                    <h3><i class="bi bi-arrow-left-right"></i> Reporte de Movimientos</h3>
-                    
-                    <!-- Estadísticas Resumen -->
-                    <div class="reporte-stats">
-                        <div class="stat-item">
-                            <div class="stat-value">{{ datos_reporte.movimientos.total }}</div>
-                            <div class="stat-label">Total Movimientos</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" style="color: #28a745;">{{ datos_reporte.movimientos.entradas }}</div>
-                            <div class="stat-label">Entradas</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" style="color: #dc3545;">{{ datos_reporte.movimientos.salidas }}</div>
-                            <div class="stat-label">Salidas</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value">{{ datos_reporte.movimientos.diferencia }}</div>
-                            <div class="stat-label">Diferencia</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Tabla de Movimientos -->
-                    <div class="table-responsive">
-                        <table class="table reporte-tabla">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Producto</th>
-                                    <th>Tipo</th>
-                                    <th>Cantidad</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for mov in datos_reporte.movimientos.lista %}
-                                <tr>
-                                    <td>{{ mov.fecha|date:"d/m/Y H:i" }}</td>
-                                    <td><strong>{{ mov.productos.nombre }}</strong></td>
-                                    <td>
-                                        {% if mov.tipo_movimiento == 'entrada' %}
-                                            <span class="badge bg-success">Entrada</span>
-                                        {% else %}
-                                            <span class="badge bg-danger">Salida</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ mov.cantidad }}</td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="4" class="sin-datos">
-                                        No hay movimientos en este período
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                {% endif %}
-
-                <!-- ============================================ -->
-                <!-- MINI-REPORTE: ALERTAS                        -->
-                <!-- ============================================ -->
-                {% if datos_reporte.alertas %}
-                <div class="mini-reporte">
-                    <h3><i class="bi bi-bell"></i> Reporte de Alertas</h3>
-                    
-                    <!-- Estadísticas Resumen -->
-                    <div class="reporte-stats">
-                        <div class="stat-item">
-                            <div class="stat-value">{{ datos_reporte.alertas.total }}</div>
-                            <div class="stat-label">Total Alertas</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" style="color: #dc3545;">{{ datos_reporte.alertas.rojas }}</div>
-                            <div class="stat-label">Rojas (Urgente)</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" style="color: #ffc107;">{{ datos_reporte.alertas.amarillas }}</div>
-                            <div class="stat-label">Amarillas</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-value" style="color: #28a745;">{{ datos_reporte.alertas.verdes }}</div>
-                            <div class="stat-label">Verdes</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Tabla de Alertas -->
-                    <div class="table-responsive">
-                        <table class="table reporte-tabla">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Producto</th>
-                                    <th>Tipo</th>
-                                    <th>Mensaje</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for alerta in datos_reporte.alertas.lista %}
-                                <tr>
-                                    <td>{{ alerta.fecha_generada|date:"d/m/Y" }}</td>
-                                    <td><strong>{{ alerta.productos.nombre }}</strong></td>
-                                    <td>
-                                        {% if alerta.tipo_alerta == 'roja' %}
-                                            <span class="badge bg-danger">Roja</span>
-                                        {% elif alerta.tipo_alerta == 'amarilla' %}
-                                            <span class="badge bg-warning">Amarilla</span>
-                                        {% else %}
-                                            <span class="badge bg-success">Verde</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ alerta.mensaje }}</td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="4" class="sin-datos">
-                                        No hay alertas en este período
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                {% endif %}
-
-                <!-- ============================================ -->
-                <!-- BOTÓN DE IMPRIMIR                            -->
-                <!-- ============================================ -->
-                <div class="text-center mt-4">
-                    <button onclick="window.print()" class="btn btn-secondary">
-                        <i class="bi bi-printer"></i> Imprimir Reporte
-                    </button>
-                </div>
-
-            </div>
-            {% endif %}
 
         </main>
     </div>

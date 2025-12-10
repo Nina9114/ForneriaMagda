@@ -10,6 +10,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import Q, Sum
 from django.http import JsonResponse
 from django.utils import timezone
@@ -167,24 +168,38 @@ def factura_proveedor_crear_view(request):
             proveedor = get_object_or_404(Proveedor, pk=proveedor_id, eliminado__isnull=True)
             
             # Crear la factura
-            factura = FacturaProveedor.objects.create(
-                proveedor=proveedor,
-                numero_factura=numero_factura,
-                fecha_factura=fecha_factura,
-                fecha_vencimiento=fecha_vencimiento,
-                fecha_recepcion=fecha_recepcion,
-                estado_pago=estado_pago,
-                subtotal_sin_iva=subtotal_sin_iva,
-                total_iva=total_iva,
-                descuento=descuento,
-                total_con_iva=total_con_iva,
-                observaciones=observaciones
-            )
+            with transaction.atomic():
+                factura = FacturaProveedor.objects.create(
+                    proveedor=proveedor,
+                    numero_factura=numero_factura,
+                    fecha_factura=fecha_factura,
+                    fecha_vencimiento=fecha_vencimiento,
+                    fecha_recepcion=fecha_recepcion,
+                    estado_pago=estado_pago,
+                    subtotal_sin_iva=subtotal_sin_iva,
+                    total_iva=total_iva,
+                    descuento=descuento,
+                    total_con_iva=total_con_iva,
+                    observaciones=observaciones
+                )
+                
+                # Si se marca como pagada al crear, generar el pago automáticamente
+                if estado_pago == 'pagado':
+                    PagoProveedor.objects.create(
+                        factura_proveedor=factura,
+                        monto=total_con_iva,
+                        fecha_pago=fecha_factura,
+                        metodo_pago='efectivo',  # Default, se puede cambiar después
+                        observaciones='Pago automático al crear factura marcada como pagada'
+                    )
+                    logger.info(f'Pago automático creado para factura {factura.id}')
             
             # Procesar detalles de la factura (productos)
             # Los detalles se procesarán mediante AJAX o en una segunda vista
             
             messages.success(request, f'Factura "{factura.numero_factura}" creada exitosamente.')
+            if estado_pago == 'pagado':
+                messages.info(request, 'Se generó automáticamente el registro de pago.')
             logger.info(f'Factura creada: {factura.id} - {factura.numero_factura}')
             return redirect('factura_proveedor_detalle', factura_id=factura.id)
             
@@ -280,7 +295,9 @@ def factura_proveedor_editar_view(request, factura_id):
             fecha_factura_str = request.POST.get('fecha_factura', '')
             fecha_vencimiento_str = request.POST.get('fecha_vencimiento', '') or None
             fecha_recepcion_str = request.POST.get('fecha_recepcion', '') or None
-            factura.estado_pago = request.POST.get('estado_pago', 'pendiente')
+            estado_pago_anterior = factura.estado_pago
+            estado_pago_nuevo = request.POST.get('estado_pago', 'pendiente')
+            factura.estado_pago = estado_pago_nuevo
             # estado_recepcion eliminado - se determina por fecha_recepcion
             # Obtener totales del formulario (si están vacíos, mantener los valores existentes)
             subtotal_sin_iva_str = request.POST.get('subtotal_sin_iva', '').strip()
@@ -324,6 +341,22 @@ def factura_proveedor_editar_view(request, factura_id):
                 factura.fecha_recepcion = datetime.strptime(fecha_recepcion_str, '%Y-%m-%d').date()
             else:
                 factura.fecha_recepcion = None  # Quitar fecha de recepción si se deja vacía
+            
+            # Si se cambió el estado a 'pagado' y no había pagos previos, generar pago automático
+            if estado_pago_nuevo == 'pagado' and estado_pago_anterior != 'pagado':
+                # Verificar si ya existe un pago para esta factura
+                pagos_existentes = PagoProveedor.objects.filter(factura_proveedor=factura)
+                if not pagos_existentes.exists():
+                    # Crear pago automático
+                    PagoProveedor.objects.create(
+                        factura_proveedor=factura,
+                        monto=factura.total_con_iva,
+                        fecha_pago=factura.fecha_factura,
+                        metodo_pago='efectivo',  # Default, se puede cambiar después
+                        observaciones='Pago automático al marcar factura como pagada'
+                    )
+                    logger.info(f'Pago automático creado para factura {factura.id}')
+                    messages.info(request, 'Se generó automáticamente el registro de pago.')
             
             factura.save()
             

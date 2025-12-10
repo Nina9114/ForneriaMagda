@@ -93,6 +93,25 @@ def register_view(request):
 
 
 def dashboard_view(request):
+    """
+    Vista del dashboard principal.
+    
+    Genera alertas automáticamente al cargar el dashboard para:
+    - Productos por vencer
+    - Stock bajo
+    - Facturas vencidas o por vencer
+    """
+    from ventas.models import Alertas
+    
+    # Generar alertas automáticamente al cargar el dashboard
+    try:
+        Alertas.generar_alertas_automaticas()
+    except Exception as e:
+        # Si falla la generación de alertas, no bloquear la carga del dashboard
+        import logging
+        logger = logging.getLogger('ventas')
+        logger.error(f'Error al generar alertas automáticas en dashboard: {str(e)}', exc_info=True)
+    
     return render(request, 'dashboard.html')
 
 def proximamente_view(request, feature=None):

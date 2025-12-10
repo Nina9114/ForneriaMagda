@@ -201,6 +201,10 @@
                                         <span class="badge bg-secondary">
                                             <i class="bi bi-question-circle"></i> Otro
                                         </span>
+                                    {% elif producto.estado_merma == 'activo' %}
+                                        <span class="badge bg-danger">
+                                            <i class="bi bi-exclamation-triangle"></i> En Merma
+                                        </span>
                                     {% else %}
                                         <span class="badge bg-secondary">
                                             {{ producto.get_estado_merma_display|default:producto.estado_merma }}
@@ -247,7 +251,9 @@
                                 
                                 <!-- Columna: Fecha de caducidad -->
                                 <td>
-                                    {% if producto.caducidad %}
+                                    {% if producto.estado_merma == 'en_merma' %}
+                                        <span class="text-muted">—</span>
+                                    {% elif producto.caducidad %}
                                         {{ producto.caducidad|date:"d/m/Y" }}
                                     {% else %}
                                         <span class="text-muted">—</span>

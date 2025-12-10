@@ -15,15 +15,18 @@ from django.utils import timezone
 
 def inventario_view(request):
     q = (request.GET.get('q') or '').strip()
-    # Mostrar todos los productos (incluyendo en merma) pero no eliminados
-    # Los productos en merma se mostrarán con badge distintivo
-    mostrar_merma = request.GET.get('mostrar_merma', 'true').lower() == 'true'
+    # Filtro para mostrar inactivos
+    mostrar_inactivos = request.GET.get('mostrar_inactivos', 'false').lower() == 'true'
     
     qs = Productos.objects.select_related('categorias').filter(eliminado__isnull=True)
     
-    # Si no se quiere mostrar merma, filtrar solo activos (excluye inactivos y en_merma)
-    if not mostrar_merma:
-        qs = qs.filter(estado_merma='activo')
+    # Por defecto, mostrar productos activos Y productos en merma (para que se vean en inventario)
+    # Si mostrar_inactivos=True, mostrar activos, inactivos y en_merma
+    if mostrar_inactivos:
+        qs = qs.filter(estado_merma__in=['activo', 'inactivo', 'en_merma'])
+    else:
+        # Mostrar productos activos Y productos en merma (estos deben permanecer visibles)
+        qs = qs.filter(estado_merma__in=['activo', 'en_merma'])
     if q:
         qs = qs.filter(
             Q(nombre__icontains=q) |
@@ -56,15 +59,34 @@ def inventario_view(request):
             p.numero_lotes_activos = lotes_activos.count()
             
             # Si el producto está en merma pero tiene lotes activos (no inactivos), reactivarlo automáticamente
+            # PERO solo si NO tiene registros activos en HistorialMerma
             if p.estado_merma == 'en_merma' and p.numero_lotes_activos > 0:
-                p.estado_merma = 'activo'
-                # Actualizar fecha de caducidad con la del lote más antiguo (FIFO)
-                lote_mas_antiguo = lotes_activos.order_by('fecha_caducidad', 'fecha_recepcion').first()
-                if lote_mas_antiguo:
-                    p.caducidad = lote_mas_antiguo.fecha_caducidad
-                    if lote_mas_antiguo.fecha_elaboracion:
-                        p.elaboracion = lote_mas_antiguo.fecha_elaboracion
-                p.save(update_fields=['estado_merma', 'caducidad', 'elaboracion'])
+                try:
+                    from ventas.models import HistorialMerma
+                    tiene_historial_activo = HistorialMerma.objects.filter(
+                        producto=p,
+                        activo=True
+                    ).exists()
+                    
+                    # Solo reactivar si NO tiene historial activo (es decir, fue reactivado manualmente)
+                    if not tiene_historial_activo:
+                        p.estado_merma = 'activo'
+                        # Actualizar fecha de caducidad con la del lote más antiguo (FIFO)
+                        lote_mas_antiguo = lotes_activos.order_by('fecha_caducidad', 'fecha_recepcion').first()
+                        if lote_mas_antiguo:
+                            p.caducidad = lote_mas_antiguo.fecha_caducidad
+                            if lote_mas_antiguo.fecha_elaboracion:
+                                p.elaboracion = lote_mas_antiguo.fecha_elaboracion
+                        p.save(update_fields=['estado_merma', 'caducidad', 'elaboracion'])
+                except Exception:
+                    # Si HistorialMerma no existe, usar el comportamiento anterior
+                    p.estado_merma = 'activo'
+                    lote_mas_antiguo = lotes_activos.order_by('fecha_caducidad', 'fecha_recepcion').first()
+                    if lote_mas_antiguo:
+                        p.caducidad = lote_mas_antiguo.fecha_caducidad
+                        if lote_mas_antiguo.fecha_elaboracion:
+                            p.elaboracion = lote_mas_antiguo.fecha_elaboracion
+                    p.save(update_fields=['estado_merma', 'caducidad', 'elaboracion'])
         except Exception:
             p.numero_lotes_activos = 0
         
@@ -73,7 +95,7 @@ def inventario_view(request):
     return render(request, 'inventario.html', {
         'productos': productos, 
         'q': q,
-        'mostrar_merma': mostrar_merma
+        'mostrar_inactivos': mostrar_inactivos
     })
 
 def editar_producto_view(request, producto_id):
@@ -168,16 +190,58 @@ def editar_producto_view(request, producto_id):
                     
                     if diferencia_cantidad > 0:
                         # Aumentó la cantidad = ENTRADA
+                        # Crear un lote nuevo para mantener trazabilidad
+                        from ventas.models import Lote
+                        from django.utils import timezone
+                        from datetime import timedelta, date
+                        from decimal import Decimal
+                        
+                        # Usar fecha de caducidad del producto o fecha por defecto
+                        fecha_caducidad_lote = producto_guardado.caducidad if producto_guardado.caducidad else (date.today() + timedelta(days=30))
+                        
+                        # Generar número de lote automático
+                        numero_lote = f"EDIT-{producto_guardado.id}-{timezone.now().strftime('%Y%m%d%H%M%S')}"
+                        
+                        # Crear lote para la edición
+                        lote_edicion = Lote.objects.create(
+                            productos=producto_guardado,
+                            numero_lote=numero_lote,
+                            cantidad=Decimal(str(abs(diferencia_cantidad))),
+                            cantidad_inicial=Decimal(str(abs(diferencia_cantidad))),
+                            fecha_elaboracion=date.today(),
+                            fecha_caducidad=fecha_caducidad_lote,
+                            fecha_recepcion=timezone.now(),
+                            origen='ajuste_manual',
+                            estado='activo'
+                        )
+                        
+                        # Actualizar cantidad del producto desde lotes
+                        producto_guardado.cantidad = producto_guardado.calcular_cantidad_desde_lotes() if hasattr(producto_guardado, 'calcular_cantidad_desde_lotes') else producto_guardado.cantidad
+                        
+                        # Actualizar fecha de caducidad del producto con la del lote más antiguo
+                        lote_mas_antiguo = Lote.objects.filter(
+                            productos=producto_guardado,
+                            estado='activo',
+                            cantidad__gt=0
+                        ).order_by('fecha_caducidad', 'fecha_recepcion').first()
+                        
+                        if lote_mas_antiguo and lote_mas_antiguo.fecha_caducidad:
+                            producto_guardado.caducidad = lote_mas_antiguo.fecha_caducidad
+                        
+                        producto_guardado.save(update_fields=['cantidad', 'caducidad'])
+                        
+                        # Crear movimiento de inventario
                         movimiento = MovimientosInventario.objects.create(
                             tipo_movimiento='entrada',
                             cantidad=abs(diferencia_cantidad),
                             productos=producto_guardado,
                             origen='edicion_manual',
-                            referencia_id=producto_guardado.id,
-                            tipo_referencia='edicion_producto'
+                            referencia_id=lote_edicion.id,
+                            tipo_referencia='lote'
                         )
-                        logger.info(f'[EDITAR PRODUCTO] ✅ Movimiento ENTRADA creado: ID={movimiento.id}, Cantidad={abs(diferencia_cantidad)}, Producto={producto_guardado.id}')
-                        messages.info(request, f'Se registró una entrada de {abs(diferencia_cantidad)} unidad(es) en el inventario.')
+                        logger.info(f'[EDITAR PRODUCTO] ✅ Lote y movimiento ENTRADA creados: Lote ID={lote_edicion.id}, Movimiento ID={movimiento.id}, Cantidad={abs(diferencia_cantidad)}, Producto={producto_guardado.id}')
+                        unidad = producto_guardado.get_unidad_stock_display()
+                        messages.info(request, f'Se registró una entrada de {abs(diferencia_cantidad)} {unidad} en el inventario. Se creó un nuevo lote para mantener la trazabilidad.')
                     else:
                         # Disminuyó la cantidad = SALIDA
                         movimiento = MovimientosInventario.objects.create(
@@ -189,7 +253,8 @@ def editar_producto_view(request, producto_id):
                             tipo_referencia='edicion_producto'
                         )
                         logger.info(f'[EDITAR PRODUCTO] ✅ Movimiento SALIDA creado: ID={movimiento.id}, Cantidad={abs(diferencia_cantidad)}, Producto={producto_guardado.id}')
-                        messages.info(request, f'Se registró una salida de {abs(diferencia_cantidad)} unidad(es) en el inventario.')
+                        unidad = producto_guardado.get_unidad_stock_display()
+                        messages.info(request, f'Se registró una salida de {abs(diferencia_cantidad)} {unidad} en el inventario.')
                 except Exception as e:
                     # Si falla la creación del movimiento, registrar pero no fallar la edición
                     logger.error(f'[EDITAR PRODUCTO] ❌ Error al crear movimiento: {str(e)}', exc_info=True)
@@ -212,13 +277,35 @@ def editar_producto_view(request, producto_id):
     })
 
 def eliminar_producto_view(request, producto_id):
-    producto = get_object_or_404(Productos, pk=producto_id)
+    """
+    Desactiva un producto (no lo elimina físicamente).
+    Cambia el estado_merma a 'inactivo' en vez de usar eliminado.
+    """
+    producto = get_object_or_404(Productos, pk=producto_id, eliminado__isnull=True)
     if request.method == 'POST':
-        producto.eliminado = timezone.now()  # borrado lógico
-        producto.save(update_fields=['eliminado'])
-        messages.success(request, f'Producto "{producto.nombre}" eliminado correctamente.')
+        # Desactivar producto cambiando estado_merma a 'inactivo'
+        producto.estado_merma = 'inactivo'
+        producto.save(update_fields=['estado_merma'])
+        messages.success(request, f'Producto "{producto.nombre}" desactivado correctamente. Puede reactivarlo desde el inventario.')
         return redirect('inventario')
     return render(request, 'confirmar_eliminar.html', {'producto': producto})
+
+@login_required
+def reactivar_producto_view(request, producto_id):
+    """
+    Reactiva un producto que estaba inactivo.
+    Cambia el estado_merma de 'inactivo' a 'activo'.
+    """
+    producto = get_object_or_404(Productos, pk=producto_id, eliminado__isnull=True)
+    if request.method == 'POST':
+        if producto.estado_merma == 'inactivo':
+            producto.estado_merma = 'activo'
+            producto.save(update_fields=['estado_merma'])
+            messages.success(request, f'Producto "{producto.nombre}" reactivado correctamente.')
+        else:
+            messages.info(request, f'El producto "{producto.nombre}" no está inactivo.')
+        return redirect('inventario')
+    return render(request, 'confirmar_reactivar.html', {'producto': producto})
 
 def agregar_producto_view(request):
     if request.method == 'POST':
@@ -396,19 +483,88 @@ def cambiar_estado_producto_ajax(request, producto_id):
 @login_required
 def eliminar_registro_merma_view(request, producto_id):
     """
-    Elimina el registro de merma de un producto manualmente.
-    Limpia motivo_merma y fecha_merma, pero mantiene el estado actual.
+    Desactiva el registro de merma de un producto (no lo elimina).
+    Cambia el estado de activo a inactivo en HistorialMerma.
+    Si la tabla HistorialMerma no existe, limpia los campos del producto directamente.
     """
+    import logging
+    logger = logging.getLogger('ventas')
+    
     producto = get_object_or_404(Productos, pk=producto_id)
     
     if request.method == 'POST':
-        if producto.tiene_historial_merma():
-            producto.eliminar_registro_merma()
-            messages.success(request, f'Registro de merma eliminado para "{producto.nombre}".')
-        else:
-            messages.info(request, f'El producto "{producto.nombre}" no tiene registro de merma.')
+        try:
+            # Intentar usar HistorialMerma si la tabla existe
+            from ventas.models import HistorialMerma
+            
+            # Obtener registros activos de merma para este producto
+            registros_activos = HistorialMerma.objects.filter(
+                producto=producto,
+                activo=True
+            )
+            
+            if registros_activos.exists():
+                # Desactivar todos los registros activos (no eliminar)
+                cantidad_desactivados = registros_activos.update(activo=False)
+                
+                # Si el producto está en merma, cambiar estado a activo para que no aparezca en la lista de merma
+                # PERO NO restaurar la cantidad (debe permanecer en 0)
+                # Mantener los campos motivo_merma, fecha_merma, cantidad_merma para historial
+                if producto.estado_merma == 'en_merma':
+                    producto.estado_merma = 'activo'
+                    # NO restaurar cantidad - debe permanecer en 0
+                    # El producto quedará activo pero con cantidad 0, listo para reabastecer
+                    producto.save(update_fields=['estado_merma'])
+                
+                messages.success(
+                    request, 
+                    f'Se desactivaron {cantidad_desactivados} registro(s) de merma para "{producto.nombre}". '
+                    f'El producto ha sido reactivado y ya no aparece en la lista de merma. '
+                    f'Los datos históricos se mantienen en la base de datos para reportes.'
+                )
+            else:
+                # Si no hay registros en HistorialMerma pero el producto está en merma, solo cambiar estado
+                # Mantener los campos históricos (motivo_merma, fecha_merma, cantidad_merma)
+                if producto.estado_merma == 'en_merma':
+                    producto.estado_merma = 'activo'
+                    producto.save(update_fields=['estado_merma'])
+                    messages.success(
+                        request, 
+                        f'Producto reactivado para "{producto.nombre}". '
+                        f'Los datos históricos de merma se mantienen en la base de datos.'
+                    )
+                else:
+                    messages.info(request, f'El producto "{producto.nombre}" no tiene registros activos de merma.')
         
-        return redirect('detalle_producto', producto_id=producto.id)
+        except Exception as e:
+            # Si HistorialMerma no existe o hay error, limpiar campos del producto directamente
+            logger.warning(f'No se pudo usar HistorialMerma (tabla puede no existir): {str(e)}')
+            
+            # Solo cambiar estado del producto (mantener campos históricos)
+            if producto.estado_merma == 'en_merma':
+                producto.estado_merma = 'activo'
+                producto.save(update_fields=['estado_merma'])
+                messages.success(
+                    request, 
+                    f'Producto reactivado para "{producto.nombre}". '
+                    f'Los datos históricos de merma se mantienen en la base de datos. '
+                    f'Nota: Ejecuta el script SQL para habilitar el historial completo de merma.'
+                )
+            else:
+                messages.info(request, f'El producto "{producto.nombre}" no tiene registros activos de merma.')
+        
+        # Redirigir a la lista de merma (no al detalle del producto)
+        return redirect('merma_list')
     
     # GET: Mostrar confirmación
-    return render(request, 'eliminar_registro_merma.html', {'producto': producto})
+    try:
+        from ventas.models import HistorialMerma
+        registros_activos = HistorialMerma.objects.filter(producto=producto, activo=True).count()
+    except Exception:
+        # Si la tabla no existe, verificar campos del producto
+        registros_activos = 1 if (producto.motivo_merma or producto.fecha_merma or (producto.cantidad_merma and producto.cantidad_merma > 0)) else 0
+    
+    return render(request, 'eliminar_registro_merma.html', {
+        'producto': producto,
+        'registros_activos': registros_activos
+    })

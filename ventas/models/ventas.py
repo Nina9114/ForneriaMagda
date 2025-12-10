@@ -135,6 +135,25 @@ class Ventas(models.Model):
         null=True                   # Puede ser NULL
     )
     
+    # --- Opciones para el medio de pago ---
+    MEDIO_PAGO_CHOICES = [
+        ('efectivo', 'Efectivo'),
+        ('tarjeta_debito', 'Tarjeta Débito'),
+        ('tarjeta_credito', 'Tarjeta Crédito'),
+        ('transferencia', 'Transferencia'),
+        ('cheque', 'Cheque'),
+        ('otro', 'Otro'),
+    ]
+    
+    # --- Campo: Medio de pago ---
+    # Forma en que el cliente pagó la venta
+    medio_pago = models.CharField(
+        max_length=20,
+        choices=MEDIO_PAGO_CHOICES,
+        default='efectivo',
+        help_text='Método de pago utilizado por el cliente'
+    )
+    
     # --- Campo: Monto pagado por el cliente ---
     # Cuánto dinero entregó el cliente (puede ser más que el total)
     monto_pagado = models.DecimalField(
@@ -148,6 +167,7 @@ class Ventas(models.Model):
     # --- Campo: Vuelto ---
     # Si el cliente pagó de más, cuánto debemos devolverle
     # Ejemplo: Total $1.500, cliente paga con $2.000, vuelto = $500
+    # Nota: Solo aplica para pagos en efectivo
     vuelto = models.DecimalField(
         max_digits=10,
         decimal_places=2,

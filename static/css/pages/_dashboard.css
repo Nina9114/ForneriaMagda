@@ -239,6 +239,7 @@
     display: flex;
     flex-direction: column;
     gap: 20px;                 /* Espacio entre cards dentro de la columna */
+    align-items: stretch;      /* Las cards dentro de la columna se estiran para llenar el espacio */
 }
 
 /* --- Estilo Base de las Tarjetas de Métricas --- */
@@ -251,8 +252,9 @@
     display: flex;             /* Usa Flexbox para el contenido interno. */
     flex-direction: column;    /* Apila los elementos verticalmente. */
     justify-content: flex-start; /* Alinea el contenido en la parte superior. */
-    align-items: center;       /* Centra el contenido horizontalmente. */
+    align-items: stretch;      /* Estira los elementos para llenar el ancho disponible. */
     min-height: 250px;         /* Altura mínima para que todas las tarjetas tengan un tamaño consistente. */
+    flex: 1;                   /* Permite que las cards se estiren para llenar el espacio disponible */
 }
 
 /* --- Título de la Tarjeta de Métrica ("Ventas del Día") --- */
@@ -260,6 +262,8 @@
     font-size: 16px;           /* Tamaño de fuente. */
     color: #6c757d;            /* Color de texto gris. */
     margin-bottom: 3px;        /* Pequeño espacio inferior. */
+    text-align: center;        /* Centra el título horizontalmente */
+    width: 100%;               /* Ocupa todo el ancho disponible */
 }
 
 /* --- Valor Principal de la Tarjeta (el número grande) --- */

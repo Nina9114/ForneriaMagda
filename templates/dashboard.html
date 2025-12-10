@@ -123,13 +123,52 @@
                     </div>
                 </div>
 
-                <!-- Columna 3: ESPACIO RESERVADO -->
-                <div class="dashboard-col empty-column">
-                    <!-- Espacio reservado para futuras funcionalidades -->
+                <!-- Columna 3 y 4: LISTA DE VENTAS DEL DÍA (ocupa 2 espacios debajo de Alertas y Top Producto) -->
+                <div class="dashboard-col" style="flex: 2;">
+                    <div class="dashboard-metric-card" style="min-height: auto; height: 100%;">
+                        <h3 class="metric-card-title">
+                            <i class="bi bi-cash-coin" style="color: #D4AF37;"></i>
+                            Ventas del Día (Detalle)
+                        </h3>
+                        <div id="tabla-ventas-dia" style="max-height: 400px; overflow-y: auto; flex: 1;">
+                            <p class="text-muted" id="tabla-ventas-dia-loading">Cargando...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================ -->
+            <!-- FILA 3: TABLAS DETALLADAS (4 COLUMNAS)      -->
+            <!-- ============================================ -->
+            <div class="dashboard-row">
+                <!-- Columna 1: LISTA DE STOCK BAJO (debajo de Ventas del Día y Stock Bajo) -->
+                <div class="dashboard-col">
+                    <div class="dashboard-metric-card" style="min-height: auto; height: 100%;">
+                        <h3 class="metric-card-title">
+                            <i class="bi bi-exclamation-triangle-fill" style="color: #ff6b6b;"></i>
+                            Productos con Stock Bajo
+                        </h3>
+                        <div id="tabla-stock-bajo" style="max-height: 400px; overflow-y: auto; flex: 1;">
+                            <p class="text-muted" id="tabla-stock-bajo-loading">Cargando...</p>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Columna 4: ESPACIO RESERVADO -->
-                <div class="dashboard-col empty-column">
+                <!-- Columna 2: LISTA DE MERMA (debajo de Ventas del Día y Stock Bajo) -->
+                <div class="dashboard-col">
+                    <div class="dashboard-metric-card" style="min-height: auto; height: 100%;">
+                        <h3 class="metric-card-title">
+                            <i class="bi bi-trash-fill" style="color: #ff6b6b;"></i>
+                            Productos en Merma
+                        </h3>
+                        <div id="tabla-merma" style="max-height: 400px; overflow-y: auto; flex: 1;">
+                            <p class="text-muted" id="tabla-merma-loading">Cargando...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Columna 3 y 4: ESPACIO RESERVADO -->
+                <div class="dashboard-col empty-column" style="flex: 2;">
                     <!-- Espacio reservado para futuras funcionalidades -->
                 </div>
             </div>
@@ -165,7 +204,7 @@ document.addEventListener('DOMContentLoaded', function(){
 </script>
 
 <!-- Script para cargar métricas del dashboard -->
-<script src="{% static 'js/dashboard_metrics.js' %}"></script>
+<script src="{% static 'js/dashboard_metrics.js' %}?v=3"></script>
 
 <!-- Script para expiraciones -->
 <script src="{% static 'js/expiraciones.js' %}?v=2"></script>

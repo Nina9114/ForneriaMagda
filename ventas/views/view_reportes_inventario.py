@@ -25,6 +25,7 @@ from decimal import Decimal
 import csv
 
 from ventas.models import Productos, Categorias
+from ventas.utils.exportadores import exportar_a_excel, exportar_a_pdf
 
 
 # ================================================================
@@ -159,6 +160,43 @@ def reporte_inventario_view(request):
 # =     VISTA: EXPORTAR REPORTE INVENTARIO A CSV               =
 # ================================================================
 
+def _obtener_productos_inventario(request):
+    """
+    Función auxiliar para obtener productos de inventario con filtros aplicados.
+    
+    Args:
+        request: HttpRequest con parámetros de filtro
+        
+    Returns:
+        list: Lista de diccionarios con datos de productos
+    """
+    productos = Productos.objects.filter(
+        eliminado__isnull=True,
+        estado_merma='activo'
+    ).select_related('categorias')
+    
+    categoria_id = request.GET.get('categoria_id')
+    if categoria_id and categoria_id != '':
+        productos = productos.filter(categorias_id=categoria_id)
+    
+    # Preparar datos
+    datos = []
+    for producto in productos:
+        cantidad = producto.cantidad if producto.cantidad else 0
+        precio = producto.precio if producto.precio else Decimal('0.00')
+        valorizacion = cantidad * precio
+        
+        datos.append({
+            'Producto': producto.nombre,
+            'Categoría': producto.categorias.nombre if producto.categorias else 'Sin categoría',
+            'Stock Actual': cantidad,
+            'Precio': precio,
+            'Valorización': valorizacion,
+        })
+    
+    return datos
+
+
 @login_required
 def exportar_inventario_csv(request):
     """
@@ -170,16 +208,7 @@ def exportar_inventario_csv(request):
     Returns:
         HttpResponse: Archivo CSV descargable
     """
-    
-    # Aplicar mismos filtros que el reporte (solo productos activos, excluye inactivos y en_merma)
-    productos = Productos.objects.filter(
-        eliminado__isnull=True,
-        estado_merma='activo'
-    ).select_related('categorias')
-    
-    categoria_id = request.GET.get('categoria_id')
-    if categoria_id and categoria_id != '':
-        productos = productos.filter(categorias_id=categoria_id)
+    datos = _obtener_productos_inventario(request)
     
     # Crear respuesta CSV
     response = HttpResponse(content_type='text/csv; charset=utf-8')
@@ -193,18 +222,66 @@ def exportar_inventario_csv(request):
     ])
     
     # Datos
-    for producto in productos:
-        cantidad = producto.cantidad if producto.cantidad else 0
-        precio = producto.precio if producto.precio else Decimal('0.00')
-        valorizacion = cantidad * precio
-        
+    for item in datos:
         writer.writerow([
-            producto.nombre,
-            producto.categorias.nombre if producto.categorias else 'Sin categoría',
-            cantidad,
-            float(precio),
-            float(valorizacion),
+            item['Producto'],
+            item['Categoría'],
+            item['Stock Actual'],
+            float(item['Precio']),
+            float(item['Valorización']),
         ])
     
     return response
+
+
+@login_required
+def exportar_inventario_excel(request):
+    """
+    Exporta el reporte de inventario a formato Excel (XLSX).
+    
+    Args:
+        request: HttpRequest con parámetros de filtro
+        
+    Returns:
+        HttpResponse: Archivo Excel descargable
+    """
+    datos = _obtener_productos_inventario(request)
+    
+    titulo = "Reporte de Inventario"
+    categoria_id = request.GET.get('categoria_id')
+    if categoria_id and categoria_id != '':
+        try:
+            categoria = Categorias.objects.get(id=categoria_id)
+            titulo += f" - {categoria.nombre}"
+        except Categorias.DoesNotExist:
+            pass
+    
+    return exportar_a_excel(datos, 'reporte_inventario', titulo)
+
+
+@login_required
+def exportar_inventario_pdf(request):
+    """
+    Exporta el reporte de inventario a formato PDF.
+    
+    Args:
+        request: HttpRequest con parámetros de filtro
+        
+    Returns:
+        HttpResponse: Archivo PDF descargable
+    """
+    datos = _obtener_productos_inventario(request)
+    
+    titulo = "Reporte de Inventario"
+    categoria_id = request.GET.get('categoria_id')
+    if categoria_id and categoria_id != '':
+        try:
+            categoria = Categorias.objects.get(id=categoria_id)
+            titulo += f" - {categoria.nombre}"
+        except Categorias.DoesNotExist:
+            pass
+    
+    encabezados = ['Producto', 'Categoría', 'Stock Actual', 'Precio', 'Valorización']
+    
+    return exportar_a_pdf(datos, 'reporte_inventario', titulo, encabezados)
 

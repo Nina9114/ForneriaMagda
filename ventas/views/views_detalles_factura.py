@@ -12,6 +12,8 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.db import transaction
+from django.utils import timezone
+from datetime import timedelta
 from decimal import Decimal
 from ventas.models.proveedores import FacturaProveedor, DetalleFacturaProveedor
 from ventas.models.productos import Productos
@@ -40,6 +42,8 @@ def agregar_detalle_factura_ajax(request, factura_id):
         cantidad = int(request.POST.get('cantidad', 0))
         precio_unitario = Decimal(request.POST.get('precio_unitario', '0.00'))
         descuento_pct = Decimal(request.POST.get('descuento_pct', '0.00'))
+        fecha_vencimiento_producto = request.POST.get('fecha_vencimiento_producto', '').strip()
+        lote = request.POST.get('lote', '').strip()
         
         # Validaciones
         if not producto_id or cantidad <= 0 or precio_unitario <= 0:
@@ -56,6 +60,18 @@ def agregar_detalle_factura_ajax(request, factura_id):
             descuento = subtotal * (descuento_pct / 100)
             subtotal = subtotal - descuento
         
+        # Convertir fecha de vencimiento si se proporcionó
+        fecha_vencimiento_obj = None
+        if fecha_vencimiento_producto:
+            from datetime import datetime
+            try:
+                fecha_vencimiento_obj = datetime.strptime(fecha_vencimiento_producto, '%Y-%m-%d').date()
+            except ValueError:
+                return JsonResponse({
+                    'success': False,
+                    'mensaje': 'Fecha de vencimiento inválida. Use formato YYYY-MM-DD.'
+                }, status=400)
+        
         # Crear el detalle
         with transaction.atomic():
             detalle = DetalleFacturaProveedor.objects.create(
@@ -64,7 +80,9 @@ def agregar_detalle_factura_ajax(request, factura_id):
                 cantidad=cantidad,
                 precio_unitario=precio_unitario,
                 descuento_pct=descuento_pct,
-                subtotal=subtotal
+                subtotal=subtotal,
+                fecha_vencimiento_producto=fecha_vencimiento_obj,
+                lote=lote if lote else None
             )
             
             # Actualizar totales de la factura
@@ -157,12 +175,59 @@ def recibir_factura_ajax(request, factura_id):
             
             productos_actualizados = []
             
-            # Actualizar stock de cada producto
+            # Actualizar stock de cada producto y crear lotes
+            from ventas.models.lotes import Lote
+            from datetime import date as date_class
+            
             for detalle in detalles:
                 producto = detalle.productos
                 
-                # Actualizar cantidad
+                # Crear lote para este producto
+                # Obtener fecha de caducidad del detalle si existe, sino usar fecha por defecto
+                fecha_caducidad_lote = None
+                if hasattr(detalle, 'fecha_vencimiento_producto') and detalle.fecha_vencimiento_producto:
+                    fecha_caducidad_lote = detalle.fecha_vencimiento_producto
+                elif producto.caducidad:
+                    # Si el producto tiene fecha de caducidad, usarla
+                    fecha_caducidad_lote = producto.caducidad
+                else:
+                    # Si no hay fecha de caducidad, usar fecha de factura + 30 días como default
+                    fecha_caducidad_lote = factura.fecha_factura + timedelta(days=30)
+                
+                # Generar número de lote si no existe
+                numero_lote = None
+                if hasattr(detalle, 'numero_lote') and detalle.numero_lote:
+                    numero_lote = detalle.numero_lote
+                else:
+                    # Generar número de lote automático: FACT-{factura_id}-{detalle_id}
+                    numero_lote = f"FACT-{factura.id}-{detalle.id}"
+                
+                # Crear lote
+                lote = Lote.objects.create(
+                    productos=producto,
+                    detalle_factura_proveedor=detalle,
+                    numero_lote=numero_lote,
+                    cantidad=Decimal(str(detalle.cantidad)),
+                    cantidad_inicial=Decimal(str(detalle.cantidad)),
+                    fecha_elaboracion=factura.fecha_factura,
+                    fecha_caducidad=fecha_caducidad_lote,
+                    fecha_recepcion=timezone.now(),
+                    origen='compra',
+                    estado='activo'
+                )
+                
+                # Actualizar cantidad del producto desde lotes
                 producto.cantidad += detalle.cantidad
+                if producto.stock_actual is not None:
+                    producto.stock_actual += detalle.cantidad
+                else:
+                    producto.stock_actual = detalle.cantidad
+                
+                # Actualizar fecha de caducidad del producto si no tiene o si el lote tiene una más antigua
+                if fecha_caducidad_lote:
+                    if not producto.caducidad or fecha_caducidad_lote < producto.caducidad:
+                        producto.caducidad = fecha_caducidad_lote
+                
                 producto.save()
                 
                 # Crear movimiento de inventario
@@ -178,7 +243,8 @@ def recibir_factura_ajax(request, factura_id):
                 productos_actualizados.append({
                     'nombre': producto.nombre,
                     'cantidad': detalle.cantidad,
-                    'stock_actual': producto.cantidad
+                    'stock_actual': producto.cantidad,
+                    'lote_id': lote.id
                 })
             
             logger.info(f'Factura {factura.id} recibida. {len(productos_actualizados)} productos actualizados.')

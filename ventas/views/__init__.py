@@ -18,7 +18,8 @@ from .views_productos import (
     eliminar_producto_view,
     detalle_producto_view,
     eliminar_registro_merma_view,
-    cambiar_estado_producto_ajax
+    cambiar_estado_producto_ajax,
+    reactivar_producto_view
 )
 
 # --- Vistas del Sistema POS (Punto de Venta) ---
@@ -45,9 +46,24 @@ from .view_merma import merma_list_view, mover_a_merma_ajax
 from .view_reportes import reportes_view
 
 # --- Vistas de Reportes Avanzados (RF-V4, RF-V5, RF-I5) ---
-from .view_reportes_ventas import reporte_ventas_view, exportar_ventas_csv
-from .view_top_productos import top_productos_view, exportar_top_productos_csv
-from .view_reportes_inventario import reporte_inventario_view, exportar_inventario_csv
+from .view_reportes_ventas import (
+    reporte_ventas_view, 
+    exportar_ventas_csv,
+    exportar_ventas_excel,
+    exportar_ventas_pdf
+)
+from .view_top_productos import (
+    top_productos_view, 
+    exportar_top_productos_csv,
+    exportar_top_productos_excel,
+    exportar_top_productos_pdf
+)
+from .view_reportes_inventario import (
+    reporte_inventario_view,
+    exportar_inventario_csv,
+    exportar_inventario_excel,
+    exportar_inventario_pdf
+)
 
 # --- Vistas de Comprobante (RF-V3) ---
 from .view_comprobante import comprobante_pdf_view, comprobante_html_view
@@ -63,7 +79,9 @@ from .view_dashboard_metrics import (
     ventas_del_dia_api,
     stock_bajo_api,
     alertas_pendientes_api,
-    top_producto_api
+    top_producto_api,
+    ventas_del_dia_lista_api,
+    merma_lista_api
 )
 
 # --- Vistas de Proveedores y Facturas (NUEVO) ---
@@ -97,4 +115,14 @@ from .views_produccion import (
     produccion_list_view,
     produccion_crear_view,
     produccion_detalle_view
+)
+
+# --- Vistas de Lotes (NUEVO) ---
+from .view_lotes import obtener_lotes_producto_api
+
+# --- Vistas de Historial de Boletas (NUEVO) ---
+from .view_historial_boletas import (
+    historial_boletas_list_view,
+    historial_boleta_detalle_view,
+    historial_boleta_regenerar_pdf_view
 )

@@ -16,11 +16,11 @@
                     <a href="{% url 'agregar_producto' %}" class="btn btn-success">
                         <i class="bi bi-plus-circle"></i> Agregar Producto
                     </a>
-                    <a href="{% url 'inventario' %}?mostrar_merma={% if mostrar_merma %}false{% else %}true{% endif %}" 
-                       class="btn {% if mostrar_merma %}btn-outline-secondary{% else %}btn-secondary{% endif %}"
-                       title="{% if mostrar_merma %}Ocultar productos en merma{% else %}Mostrar productos en merma{% endif %}">
-                        <i class="bi bi-{% if mostrar_merma %}eye-slash{% else %}eye{% endif %}"></i> 
-                        {% if mostrar_merma %}Ocultar Merma{% else %}Mostrar Merma{% endif %}
+                    <a href="{% url 'inventario' %}?{% if q %}q={{ q }}&{% endif %}mostrar_inactivos={% if mostrar_inactivos %}false{% else %}true{% endif %}" 
+                       class="btn {% if mostrar_inactivos %}btn-info{% else %}btn-outline-info{% endif %}"
+                       title="{% if mostrar_inactivos %}Ocultar productos inactivos{% else %}Mostrar productos inactivos{% endif %}">
+                        <i class="bi bi-{% if mostrar_inactivos %}eye-slash{% else %}eye{% endif %}"></i> 
+                        {% if mostrar_inactivos %}Ocultar Inactivos{% else %}Mostrar Inactivos{% endif %}
                     </a>
                     <a href="{% url 'ajustes_stock' %}" class="btn btn-warning" style="color: #000;">
                         <i class="bi bi-sliders"></i> Ajustes de Stock
@@ -85,15 +85,6 @@
               onclick="accionMasiva('crear_alertas')"
               disabled>
         <i class="bi bi-bell"></i> Crear Alertas
-      </button>
-      
-      <!-- Botón: Activar/Desactivar -->
-      <button type="button" 
-              class="btn btn-sm btn-outline-secondary" 
-              id="btn-activar-desactivar"
-              onclick="accionMasiva('activar_desactivar')"
-              disabled>
-        <i class="bi bi-toggle-on"></i> Activar/Desactivar
       </button>
       
       <!-- Botón: Mover a Merma -->
@@ -257,6 +248,58 @@
         </div>
     </div>
 </div>
+
+<!-- ============================================ -->
+<!-- MODAL PARA SELECCIONAR LOTES PARA MERMA     -->
+<!-- ============================================ -->
+<div class="modal fade" id="modalSeleccionarLotes" tabindex="-1" aria-labelledby="modalSeleccionarLotesLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content" style="background: rgba(26, 26, 26, 0.95); border: 1px solid #ffd700;">
+      <div class="modal-header" style="border-bottom: 1px solid #ffd700;">
+        <h5 class="modal-title" id="modalSeleccionarLotesLabel" style="color: #ffd700;">
+          <i class="bi bi-box-seam"></i> Seleccionar Lotes para Merma
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" style="color: #ffffff;">
+        <div id="modalProductoInfo" class="mb-3">
+          <h6 id="modalProductoNombre" style="color: #ffd700;"></h6>
+          <small class="text-muted" id="modalProductoUnidad"></small>
+        </div>
+        
+        <div class="mb-3">
+          <label class="form-label" style="color: #ffffff;">
+            <i class="bi bi-chat-left-text"></i> Motivo de Merma <span class="text-danger">*</span>
+          </label>
+          <textarea id="motivoMermaInput" class="form-control" rows="3" 
+                    placeholder="Ej: vencido, roto, robado, empaque dañado, contaminado, etc." 
+                    style="background: rgba(255, 255, 255, 0.1); color: #ffffff; border: 1px solid #ffd700;"></textarea>
+        </div>
+        
+        <div class="mb-3">
+          <label class="form-label" style="color: #ffffff;">
+            <i class="bi bi-box-seam"></i> Seleccionar Lotes
+          </label>
+          <div id="lotesContainer" style="max-height: 400px; overflow-y: auto;">
+            <p class="text-muted">Cargando lotes...</p>
+          </div>
+        </div>
+        
+        <div class="alert alert-info" style="background: rgba(13, 110, 253, 0.2); border: 1px solid #0d6efd; color: #ffffff;">
+          <i class="bi bi-info-circle"></i> 
+          <strong>Instrucciones:</strong> Selecciona los lotes completos que quieres enviar a merma, o ingresa una cantidad específica de un lote.
+        </div>
+      </div>
+      <div class="modal-footer" style="border-top: 1px solid #ffd700;">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="btnConfirmarMerma">
+          <i class="bi bi-exclamation-triangle"></i> Confirmar Merma
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 <!-- ============================================ -->
@@ -288,7 +331,6 @@ const checkboxTodos = document.getElementById('checkbox-todos');
 const checkboxesProductos = document.querySelectorAll('.producto-checkbox');
 const contadorSeleccionados = document.getElementById('contador-seleccionados');
     const btnCrearAlertas = document.getElementById('btn-crear-alertas');
-    const btnActivarDesactivar = document.getElementById('btn-activar-desactivar');
     const btnMoverMerma = document.getElementById('btn-mover-merma');
     const btnEliminar = document.getElementById('btn-eliminar');
 
@@ -402,8 +444,13 @@ function accionMasiva(accion) {
             urlDestino = '/api/acciones-masivas/crear-alertas/';
             break;
         case 'mover_merma':
-            // Capturar motivo detallado de merma
-            // El producto se reducirá a cantidad 0 y se marcará como 'en_merma'
+            // Si solo hay un producto, mostrar modal de selección de lotes
+            if (ids.length === 1) {
+                mostrarModalSeleccionarLotes(ids[0]);
+                return; // No continuar con el flujo normal
+            }
+            
+            // Para múltiples productos, usar el flujo anterior (sin selección de lotes)
             const motivoMerma = prompt(
                 `Mover ${ids.length} producto(s) a MERMA\n\n` +
                 `El producto se reducirá a cantidad 0 pero permanecerá visible.\n` +
@@ -431,7 +478,6 @@ function accionMasiva(accion) {
             
             urlDestino = '/api/acciones-masivas/mover-merma/';
             // Guardar datos para enviar en el body
-            // Ya no enviamos estado_merma, siempre será 'en_merma'
             window.moverMermaData = {
                 ids: ids,
                 motivo_merma: motivoMerma.trim()
@@ -520,6 +566,243 @@ function getCookie(name) {
         }
     }
     return cookieValue;
+}
+
+// ============================================================
+// FUNCIÓN: Mostrar Modal de Selección de Lotes
+// ============================================================
+function mostrarModalSeleccionarLotes(productoId) {
+    const modal = new bootstrap.Modal(document.getElementById('modalSeleccionarLotes'));
+    const lotesContainer = document.getElementById('lotesContainer');
+    const productoNombre = document.getElementById('modalProductoNombre');
+    const productoUnidad = document.getElementById('modalProductoUnidad');
+    
+    // Limpiar contenido anterior
+    lotesContainer.innerHTML = '<p class="text-muted">Cargando lotes...</p>';
+    document.getElementById('motivoMermaInput').value = '';
+    
+    // Guardar producto_id para usar después
+    window.moverMermaData = { producto_id: productoId };
+    
+    // Obtener información del producto y sus lotes
+    fetch(`/api/productos/${productoId}/lotes/`)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                alert('Error al cargar lotes: ' + (data.error || 'Error desconocido'));
+                return;
+            }
+            
+            // Mostrar información del producto
+            productoNombre.textContent = data.producto.nombre;
+            productoUnidad.textContent = `Unidad: ${data.producto.unidad_stock}`;
+            
+            // Si no hay lotes, mostrar mensaje
+            if (data.lotes.length === 0) {
+                lotesContainer.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="bi bi-info-circle"></i> Este producto no tiene lotes activos.
+                        Se moverá todo el stock a merma.
+                    </div>
+                `;
+            } else {
+                // Mostrar lotes para seleccionar
+                let html = '<div class="list-group">';
+                data.lotes.forEach(lote => {
+                    const diasTexto = lote.dias_hasta_vencer !== null 
+                        ? (lote.dias_hasta_vencer < 0 
+                            ? `<span class="badge bg-danger">Vencido hace ${Math.abs(lote.dias_hasta_vencer)} días</span>`
+                            : `<span class="badge bg-${lote.dias_hasta_vencer <= 7 ? 'danger' : lote.dias_hasta_vencer <= 30 ? 'warning' : 'success'}">${lote.dias_hasta_vencer} días</span>`)
+                        : '<span class="badge bg-secondary">Sin fecha</span>';
+                    
+                    html += `
+                        <div class="list-group-item" style="background: rgba(255, 255, 255, 0.05); border: 1px solid #ffd700; margin-bottom: 10px;">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" 
+                                       id="lote_${lote.id}" 
+                                       data-lote-id="${lote.id}"
+                                       data-cantidad-max="${lote.cantidad}">
+                                <label class="form-check-label" for="lote_${lote.id}" style="color: #ffffff;">
+                                    <strong>${lote.numero_lote}</strong>
+                                    <br>
+                                    <small class="text-muted">
+                                        Cantidad: ${lote.cantidad} ${data.producto.unidad_stock} | 
+                                        Vence: ${lote.fecha_caducidad ? new Date(lote.fecha_caducidad).toLocaleDateString('es-CL') : 'N/A'} 
+                                        ${diasTexto}
+                                    </small>
+                                </label>
+                            </div>
+                            <div class="ms-4">
+                                <label class="form-label small" style="color: #ffffff;">
+                                    Cantidad a enviar a merma:
+                                </label>
+                                <input type="number" 
+                                       class="form-control form-control-sm cantidad-lote-input" 
+                                       data-lote-id="${lote.id}"
+                                       min="1" 
+                                       max="${lote.cantidad}" 
+                                       step="0.001"
+                                       value="${lote.cantidad}"
+                                       placeholder="${lote.cantidad}"
+                                       required
+                                       style="background: rgba(255, 255, 255, 0.1); color: #ffffff; border: 1px solid #ffd700;">
+                                <small class="text-muted" style="color: #ffd700 !important;">
+                                    <i class="bi bi-info-circle"></i> 
+                                    Mínimo: 1 | Máximo: ${lote.cantidad} ${data.producto.unidad_stock} | 
+                                    Valor por defecto = todo el lote (${lote.cantidad})
+                                </small>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                lotesContainer.innerHTML = html;
+            }
+            
+            // Mostrar modal
+            modal.show();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al cargar los lotes del producto');
+        });
+}
+
+// ============================================================
+// EVENTO: Confirmar Merma desde Modal
+// ============================================================
+document.getElementById('btnConfirmarMerma').addEventListener('click', function() {
+    const motivoMerma = document.getElementById('motivoMermaInput').value.trim();
+    
+    if (!motivoMerma) {
+        alert('Debe ingresar un motivo para mover a merma.');
+        return;
+    }
+    
+    // Obtener lotes seleccionados
+    const checkboxes = document.querySelectorAll('#lotesContainer input[type="checkbox"]:checked');
+    
+    const lotesSeleccionados = [];
+    let tieneLotes = false;
+    let hayError = false;
+    
+    // Primero validar todos los campos
+    checkboxes.forEach(checkbox => {
+        const loteId = parseInt(checkbox.dataset.loteId);
+        const cantidadInput = document.querySelector(`.cantidad-lote-input[data-lote-id="${loteId}"]`);
+        const cantidadMax = parseFloat(checkbox.dataset.cantidadMax) || 0;
+        const cantidad = parseFloat(cantidadInput.value);
+        
+        // Validar que la cantidad sea un número válido
+        if (isNaN(cantidad) || cantidad <= 0) {
+            alert(`La cantidad del lote debe ser mayor a 0. Por favor, ingresa un valor válido.`);
+            cantidadInput.focus();
+            hayError = true;
+            return;
+        }
+        
+        // Validar que sea al menos 1
+        if (cantidad < 1) {
+            alert(`La cantidad debe ser al menos 1.`);
+            cantidadInput.focus();
+            hayError = true;
+            return;
+        }
+        
+        // Validar que no exceda la cantidad máxima del lote
+        if (cantidad > cantidadMax) {
+            alert(`La cantidad ingresada (${cantidad}) excede la cantidad disponible del lote (${cantidadMax}). Por favor, ingresa un valor menor o igual a ${cantidadMax}.`);
+            cantidadInput.focus();
+            hayError = true;
+            return;
+        }
+    });
+    
+    // Si hay errores, no continuar
+    if (hayError) {
+        return;
+    }
+    
+    // Si todas las validaciones pasaron, procesar los lotes
+    checkboxes.forEach(checkbox => {
+        const loteId = parseInt(checkbox.dataset.loteId);
+        const cantidadInput = document.querySelector(`.cantidad-lote-input[data-lote-id="${loteId}"]`);
+        const cantidadMax = parseFloat(checkbox.dataset.cantidadMax) || 0;
+        const cantidad = parseFloat(cantidadInput.value);
+        
+        // Si el checkbox está marcado y hay cantidad disponible, agregar el lote
+        if (cantidadMax > 0 && cantidad >= 1 && cantidad <= cantidadMax) {
+            lotesSeleccionados.push({
+                lote_id: loteId,
+                cantidad: cantidad
+            });
+            tieneLotes = true;
+        }
+    });
+    
+    // Si no hay lotes en el contenedor, es porque el producto no tiene lotes
+    const noTieneLotes = document.querySelectorAll('#lotesContainer .list-group-item').length === 0;
+    
+    // Validar: debe haber al menos un checkbox marcado (si hay lotes disponibles)
+    if (!tieneLotes && !noTieneLotes) {
+        alert('Debe seleccionar al menos un lote marcando el checkbox.');
+        return;
+    }
+    
+    // Obtener producto_id del modal (guardado en window.moverMermaData)
+    const productoId = window.moverMermaData?.producto_id;
+    
+    if (!productoId) {
+        alert('Error: No se pudo identificar el producto.');
+        return;
+    }
+    
+    // Cerrar modal
+    bootstrap.Modal.getInstance(document.getElementById('modalSeleccionarLotes')).hide();
+    
+    // Enviar datos a la API
+    enviarMermaConLotes(productoId, motivoMerma, lotesSeleccionados);
+});
+
+// ============================================================
+// FUNCIÓN: Enviar Merma con Lotes Específicos
+// ============================================================
+function enviarMermaConLotes(productoId, motivoMerma, lotesSeleccionados) {
+    const btnMoverMerma = document.getElementById('btn-mover-merma');
+    const textoOriginal = btnMoverMerma.innerHTML;
+    btnMoverMerma.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
+    btnMoverMerma.disabled = true;
+    
+    fetch('/api/mover-a-merma/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            producto_ids: [productoId],
+            motivo_merma: motivoMerma,
+            lotes: lotesSeleccionados
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        btnMoverMerma.innerHTML = textoOriginal;
+        btnMoverMerma.disabled = false;
+        
+        if (data.success) {
+            alert(data.mensaje);
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || data.mensaje || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        btnMoverMerma.innerHTML = textoOriginal;
+        btnMoverMerma.disabled = false;
+        alert('Error al procesar la merma. Intenta nuevamente.');
+    });
 }
 
 // ============================================================

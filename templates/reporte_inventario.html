@@ -70,14 +70,22 @@
                         </div>
                         
                         <!-- Botones -->
-                        <div class="d-flex gap-2">
+                        <div class="d-flex gap-2 flex-wrap">
                             <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-search"></i> Generar Reporte
                             </button>
                             {% if reporte_generado %}
-                                <a href="{% url 'exportar_inventario_csv' %}?{{ request.GET.urlencode }}" 
+                                <a href="{% url 'exportar_inventario_excel' %}?{{ request.GET.urlencode }}" 
                                    class="btn btn-success">
-                                    <i class="bi bi-file-earmark-excel"></i> Exportar CSV
+                                    <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+                                </a>
+                                <a href="{% url 'exportar_inventario_pdf' %}?{{ request.GET.urlencode }}" 
+                                   class="btn btn-danger">
+                                    <i class="bi bi-file-pdf"></i> Exportar PDF
+                                </a>
+                                <a href="{% url 'exportar_inventario_csv' %}?{{ request.GET.urlencode }}" 
+                                   class="btn btn-secondary">
+                                    <i class="bi bi-filetype-csv"></i> Exportar CSV
                                 </a>
                             {% endif %}
                         </div>

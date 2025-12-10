@@ -248,3 +248,115 @@ def top_producto_api(request):
             'total_vendido': 0,
             'error': str(e)
         }, status=500)
+
+
+def ventas_del_dia_lista_api(request):
+    """
+    API que retorna la lista detallada de ventas del día actual.
+    
+    Returns:
+        JSON con:
+        - ventas: Lista de ventas con detalles (folio, fecha, total, cliente, etc.)
+    """
+    try:
+        # Obtener fecha de hoy en la zona horaria local
+        ahora = timezone.now()
+        ahora_local = timezone.localtime(ahora)
+        hoy_local = ahora_local.date()
+        
+        # Calcular rango del día en UTC
+        inicio_dia_local = datetime.combine(hoy_local, datetime.min.time())
+        fin_dia_local = datetime.combine(hoy_local, datetime.max.time()) + timedelta(microseconds=999999)
+        
+        inicio_dia_aware = timezone.make_aware(inicio_dia_local)
+        fin_dia_aware = timezone.make_aware(fin_dia_local)
+        
+        inicio_dia_utc = inicio_dia_aware.astimezone(dt_timezone.utc)
+        fin_dia_utc = fin_dia_aware.astimezone(dt_timezone.utc)
+        
+        # Obtener todas las ventas de hoy
+        ventas_hoy = Ventas.objects.filter(
+            fecha__gte=inicio_dia_utc,
+            fecha__lte=fin_dia_utc
+        ).select_related('clientes').order_by('-fecha')
+        
+        # Formatear ventas para el JSON
+        ventas_lista = []
+        for venta in ventas_hoy:
+            fecha_local = timezone.localtime(venta.fecha)
+            ventas_lista.append({
+                'id': venta.id,
+                'folio': venta.folio or f'BOL-{venta.id}',
+                'fecha': fecha_local.strftime('%d/%m/%Y'),
+                'hora': fecha_local.strftime('%H:%M:%S'),
+                'total': float(venta.total_con_iva),
+                'cliente': venta.clientes.nombre if venta.clientes else 'Cliente Genérico',
+                'canal': venta.canal_venta,
+                'num_productos': venta.detalles.count()
+            })
+        
+        return JsonResponse({
+            'ventas': ventas_lista,
+            'total_ventas': len(ventas_lista)
+        })
+    except Exception as e:
+        logger.error(f'Error en ventas_del_dia_lista_api: {str(e)}', exc_info=True)
+        return JsonResponse({
+            'ventas': [],
+            'total_ventas': 0,
+            'error': str(e)
+        }, status=500)
+
+
+def merma_lista_api(request):
+    """
+    API que retorna la lista detallada de productos en merma.
+    
+    Returns:
+        JSON con:
+        - productos: Lista de productos en merma con detalles
+    """
+    try:
+        from ventas.models import HistorialMerma
+        from django.db.models import Q
+        
+        # Obtener IDs de productos con registros activos en HistorialMerma
+        productos_con_historial_activo = HistorialMerma.objects.filter(
+            activo=True
+        ).values_list('producto_id', flat=True).distinct()
+        
+        # Obtener productos en merma
+        productos_merma = Productos.objects.filter(
+            eliminado__isnull=True
+        ).filter(
+            Q(id__in=productos_con_historial_activo) | Q(estado_merma='en_merma')
+        ).distinct()
+        
+        # Formatear productos para el JSON
+        productos_lista = []
+        for producto in productos_merma:
+            cantidad_merma = producto.cantidad_merma if (producto.cantidad_merma and producto.cantidad_merma > 0) else producto.cantidad
+            perdida_producto = float(cantidad_merma * producto.precio) if cantidad_merma > 0 else 0.0
+            
+            productos_lista.append({
+                'id': producto.id,
+                'nombre': producto.nombre,
+                'cantidad_merma': float(cantidad_merma),
+                'precio': float(producto.precio),
+                'perdida': perdida_producto,
+                'motivo': producto.motivo_merma or 'No especificado',
+                'fecha_merma': producto.fecha_merma.strftime('%d/%m/%Y %H:%M') if producto.fecha_merma else 'N/A',
+                'unidad': producto.get_unidad_stock_display()
+            })
+        
+        return JsonResponse({
+            'productos': productos_lista,
+            'total_productos': len(productos_lista)
+        })
+    except Exception as e:
+        logger.error(f'Error en merma_lista_api: {str(e)}', exc_info=True)
+        return JsonResponse({
+            'productos': [],
+            'total_productos': 0,
+            'error': str(e)
+        }, status=500)

@@ -80,9 +80,19 @@
                     <!-- Información de pago -->
                     {% if venta.monto_pagado %}
                         <div class="mb-4">
-                            <p class="mb-1"><strong>Medio de pago:</strong> Efectivo</p>
+                            <p class="mb-1"><strong>Medio de pago:</strong> 
+                                {% if venta.medio_pago == 'efectivo' %}Efectivo
+                                {% elif venta.medio_pago == 'tarjeta_debito' %}Tarjeta Débito
+                                {% elif venta.medio_pago == 'tarjeta_credito' %}Tarjeta Crédito
+                                {% elif venta.medio_pago == 'transferencia' %}Transferencia
+                                {% elif venta.medio_pago == 'cheque' %}Cheque
+                                {% elif venta.medio_pago == 'otro' %}Otro
+                                {% else %}Efectivo{% endif %}
+                            </p>
                             <p class="mb-1"><strong>Pago recibido:</strong> {{ venta.monto_pagado|floatformat:0 }}</p>
+                            {% if venta.medio_pago == 'efectivo' and venta.vuelto %}
                             <p class="mb-1"><strong>Vuelto:</strong> {{ venta.vuelto|floatformat:0 }}</p>
+                            {% endif %}
                         </div>
                     {% endif %}
 

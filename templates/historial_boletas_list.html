@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block contenido %}
+<!-- ================================================================ -->
+<!-- =                                                              = -->
+<!-- =              HISTORIAL DE BOLETAS EMITIDAS                   = -->
+<!-- =                                                              = -->
+<!-- ================================================================ -->
+<!--
+    Esta página muestra el historial completo de todas las boletas
+    emitidas en el sistema. Permite auditoría y revisión de ventas.
+    
+    FUNCIONALIDADES:
+    - Ver todas las boletas emitidas
+    - Buscar por folio, cliente, fecha
+    - Filtrar por rango de fechas
+    - Ver detalles de cada boleta
+    - Regenerar PDFs
+-->
+
+<div class="dashboard-main-container">
+    <!-- Sidebar de navegación -->
+    {% include 'includes/sidebar.html' with active_page='historial_boletas' %}
+
+    <div class="dashboard-content-wrapper">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <h1 class="dashboard-main-title">
+                <i class="bi bi-receipt-cutoff"></i> Historial de Boletas
+            </h1>
+        </header>
+
+        <!-- Contenido principal -->
+        <main class="dashboard-content">
+            
+            <!-- ============================================ -->
+            <!-- TARJETA DE ESTADÍSTICAS                      -->
+            <!-- ============================================ -->
+            <div class="card shadow-sm mb-4" style="background: rgba(26, 26, 26, 0.8); border: 2px solid #ffd700;">
+                <div class="card-body">
+                    <h5 class="card-title text-warning mb-3">
+                        <i class="bi bi-bar-chart"></i> Resumen
+                    </h5>
+                    <div class="row">
+                        <div class="col-md-4 text-center">
+                            <div class="fs-2 fw-bold text-warning">{{ total_boletas }}</div>
+                            <p class="text-muted mb-0">Boletas Emitidas</p>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="fs-2 fw-bold text-success">
+                                ${{ total_ingresos|floatformat:"0" }}
+                            </div>
+                            <p class="text-muted mb-0">Total Ingresos</p>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="fs-2 fw-bold text-info">{{ boletas.paginator.num_pages|default:1 }}</div>
+                            <p class="text-muted mb-0">Páginas</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================ -->
+            <!-- BARRA DE BÚSQUEDA Y FILTROS                  -->
+            <!-- ============================================ -->
+            <div class="card shadow-sm mb-4" style="background: rgba(26, 26, 26, 0.8); border: 2px solid #ffd700;">
+                <div class="card-body">
+                    <form method="get" action="{% url 'historial_boletas_list' %}" class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label text-warning">Buscar</label>
+                            <input type="text" 
+                                   name="q" 
+                                   class="form-control" 
+                                   placeholder="Folio, cliente, usuario..."
+                                   value="{{ busqueda }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label text-warning">Fecha Desde</label>
+                            <input type="date" 
+                                   name="fecha_desde" 
+                                   class="form-control" 
+                                   value="{{ fecha_desde }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label text-warning">Fecha Hasta</label>
+                            <input type="date" 
+                                   name="fecha_hasta" 
+                                   class="form-control" 
+                                   value="{{ fecha_hasta }}">
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="submit" class="btn btn-warning w-100" style="color: #1a1a1a;">
+                                <i class="bi bi-search"></i> Buscar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- ============================================ -->
+            <!-- TABLA DE BOLETAS                             -->
+            <!-- ============================================ -->
+            <div class="card shadow-sm" style="background: rgba(26, 26, 26, 0.8); border: 2px solid #ffd700;">
+                <div class="card-header">
+                    <h5 class="mb-0 text-warning">
+                        <i class="bi bi-list-ul"></i> Boletas Emitidas
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if boletas %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead style="background: rgba(212, 175, 55, 0.2);">
+                                    <tr>
+                                        <th>Folio</th>
+                                        <th>Fecha Emisión</th>
+                                        <th>Cliente</th>
+                                        <th>Total</th>
+                                        <th>Productos</th>
+                                        <th>Usuario</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for boleta in boletas %}
+                                    <tr>
+                                        <td>
+                                            <strong class="text-warning">{{ boleta.folio }}</strong>
+                                        </td>
+                                        <td>
+                                            {{ boleta.fecha_emision|date:"d/m/Y H:i" }}
+                                        </td>
+                                        <td>{{ boleta.cliente_nombre }}</td>
+                                        <td>
+                                            <strong class="text-success">
+                                                ${{ boleta.total_con_iva|floatformat:"0" }}
+                                            </strong>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">{{ boleta.num_productos }}</span>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">{{ boleta.usuario_emisor|default:"Sistema" }}</small>
+                                        </td>
+                                        <td>
+                                            {% if boleta.modificado %}
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="bi bi-pencil"></i> Modificada
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-success">
+                                                    <i class="bi bi-check-circle"></i> Original
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="{% url 'historial_boleta_detalle' boleta.id %}" 
+                                                   class="btn btn-outline-info" 
+                                                   title="Ver detalles">
+                                                    <i class="bi bi-eye"></i>
+                                                </a>
+                                                <a href="{% url 'historial_boleta_pdf' boleta.id %}" 
+                                                   class="btn btn-outline-danger" 
+                                                   title="Descargar PDF">
+                                                    <i class="bi bi-file-pdf"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginación -->
+                        {% if boletas.has_other_pages %}
+                        <div class="card-footer">
+                            <nav aria-label="Paginación">
+                                <ul class="pagination mb-0 justify-content-center">
+                                    {% if boletas.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if busqueda %}&q={{ busqueda }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+                                                <i class="bi bi-chevron-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ boletas.previous_page_number }}{% if busqueda %}&q={{ busqueda }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+                                                <i class="bi bi-chevron-left"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item active">
+                                        <span class="page-link">
+                                            Página {{ boletas.number }} de {{ boletas.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    {% if boletas.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ boletas.next_page_number }}{% if busqueda %}&q={{ busqueda }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+                                                <i class="bi bi-chevron-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ boletas.paginator.num_pages }}{% if busqueda %}&q={{ busqueda }}{% endif %}{% if fecha_desde %}&fecha_desde={{ fecha_desde }}{% endif %}{% if fecha_hasta %}&fecha_hasta={{ fecha_hasta }}{% endif %}">
+                                                <i class="bi bi-chevron-double-right"></i>
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="card-body text-center py-5">
+                            <i class="bi bi-inbox fs-1 text-muted"></i>
+                            <p class="text-muted mt-3">No se encontraron boletas</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %}
+

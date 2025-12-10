@@ -26,6 +26,7 @@ from ventas.views import (
     # Vistas de productos e inventario
     agregar_producto_view, inventario_view, editar_producto_view, 
     eliminar_producto_view, detalle_producto_view, eliminar_registro_merma_view,
+    reactivar_producto_view,
     cambiar_estado_producto_ajax,
     
     # Vistas de gestión de usuarios (admin)
@@ -53,6 +54,10 @@ from ventas.views import (
     
     # Vistas de Métricas del Dashboard (NUEVO)
     ventas_del_dia_api, stock_bajo_api, alertas_pendientes_api, top_producto_api,
+    ventas_del_dia_lista_api, merma_lista_api,
+    
+    # Vistas de Historial de Boletas (NUEVO)
+    historial_boletas_list_view, historial_boleta_detalle_view, historial_boleta_regenerar_pdf_view,
     
     # Vistas de Proveedores y Facturas (NUEVO)
     proveedores_list_view, proveedor_crear_view, proveedor_editar_view, proveedor_eliminar_view,
@@ -80,15 +85,21 @@ from ventas.views.view_dashboard import (
 # Vistas de reportes avanzados (RF-V4, RF-V5, RF-I5)
 from ventas.views.view_reportes_ventas import (
     reporte_ventas_view,
-    exportar_ventas_csv
+    exportar_ventas_csv,
+    exportar_ventas_excel,
+    exportar_ventas_pdf
 )
 from ventas.views.view_top_productos import (
     top_productos_view,
-    exportar_top_productos_csv
+    exportar_top_productos_csv,
+    exportar_top_productos_excel,
+    exportar_top_productos_pdf
 )
 from ventas.views.view_reportes_inventario import (
     reporte_inventario_view,
-    exportar_inventario_csv
+    exportar_inventario_csv,
+    exportar_inventario_excel,
+    exportar_inventario_pdf
 )
 
 # Vista de comprobante PDF (RF-V3)
@@ -101,6 +112,11 @@ from ventas.views.view_comprobante import (
 from ventas.views.view_ajustes_stock import (
     ajustes_stock_view,
     procesar_ajuste_stock_ajax
+)
+
+# Vista de lotes
+from ventas.views.view_lotes import (
+    obtener_lotes_producto_api
 )
 
 # ================================================================
@@ -144,14 +160,20 @@ urlpatterns = [
     # Editar un producto existente
     path('inventario/editar/<int:producto_id>/', editar_producto_view, name='editar_producto'),
     
-    # Eliminar un producto (borrado lógico)
+    # Desactivar un producto (cambia estado a inactivo)
     path('inventario/eliminar/<int:producto_id>/', eliminar_producto_view, name='eliminar_producto'),
+    
+    # Reactivar un producto inactivo
+    path('inventario/reactivar/<int:producto_id>/', reactivar_producto_view, name='reactivar_producto'),
     
     # Eliminar registro de merma de un producto
     path('inventario/detalle/<int:producto_id>/eliminar-merma/', eliminar_registro_merma_view, name='eliminar_registro_merma'),
     
     # Cambiar estado de producto (activo/inactivo) - API
     path('api/productos/<int:producto_id>/cambiar-estado/', cambiar_estado_producto_ajax, name='api_cambiar_estado_producto'),
+    
+    # API para obtener lotes de un producto
+    path('api/productos/<int:producto_id>/lotes/', obtener_lotes_producto_api, name='api_obtener_lotes_producto'),
     
     # ============================================================
     # SISTEMA DE PUNTO DE VENTA (POS) - NUEVO
@@ -185,9 +207,11 @@ urlpatterns = [
     # ============================================================
     # APIs de métricas principales
     path('api/ventas-del-dia/', ventas_del_dia_api, name='api_ventas_del_dia'),
+    path('api/ventas-del-dia/lista/', ventas_del_dia_lista_api, name='api_ventas_del_dia_lista'),
     path('api/stock-bajo/', stock_bajo_api, name='api_stock_bajo'),
     path('api/alertas-pendientes/', alertas_pendientes_api, name='api_alertas_pendientes'),
     path('api/top-producto/', top_producto_api, name='api_top_producto'),
+    path('api/merma/lista/', merma_lista_api, name='api_merma_lista'),
     
     # APIs de productos próximos a vencer
     path('api/proximos-vencimientos/', productos_por_vencer_api, name='api_proximos_vencimientos'),
@@ -244,15 +268,33 @@ urlpatterns = [
     
     # Reporte de ventas con filtros avanzados (RF-V4)
     path('reportes/ventas/', reporte_ventas_view, name='reporte_ventas'),
-    path('reportes/ventas/exportar/', exportar_ventas_csv, name='exportar_ventas_csv'),
+    path('reportes/ventas/exportar/csv/', exportar_ventas_csv, name='exportar_ventas_csv'),
+    path('reportes/ventas/exportar/excel/', exportar_ventas_excel, name='exportar_ventas_excel'),
+    path('reportes/ventas/exportar/pdf/', exportar_ventas_pdf, name='exportar_ventas_pdf'),
     
     # Reporte top productos (RF-V5)
     path('reportes/top-productos/', top_productos_view, name='top_productos'),
-    path('reportes/top-productos/exportar/<str:tipo>/', exportar_top_productos_csv, name='exportar_top_productos_csv'),
+    path('reportes/top-productos/exportar/csv/<str:tipo>/', exportar_top_productos_csv, name='exportar_top_productos_csv'),
+    path('reportes/top-productos/exportar/excel/<str:tipo>/', exportar_top_productos_excel, name='exportar_top_productos_excel'),
+    path('reportes/top-productos/exportar/pdf/<str:tipo>/', exportar_top_productos_pdf, name='exportar_top_productos_pdf'),
     
     # Reporte de inventario con valorización (RF-I5)
     path('reportes/inventario/', reporte_inventario_view, name='reporte_inventario'),
-    path('reportes/inventario/exportar/', exportar_inventario_csv, name='exportar_inventario_csv'),
+    path('reportes/inventario/exportar/csv/', exportar_inventario_csv, name='exportar_inventario_csv'),
+    path('reportes/inventario/exportar/excel/', exportar_inventario_excel, name='exportar_inventario_excel'),
+    path('reportes/inventario/exportar/pdf/', exportar_inventario_pdf, name='exportar_inventario_pdf'),
+    
+    # ============================================================
+    # HISTORIAL DE BOLETAS (NUEVO)
+    # ============================================================
+    # Lista de boletas emitidas (auditoría)
+    path('historial-boletas/', historial_boletas_list_view, name='historial_boletas_list'),
+    
+    # Detalle de una boleta del historial
+    path('historial-boletas/<int:historial_id>/', historial_boleta_detalle_view, name='historial_boleta_detalle'),
+    
+    # Regenerar PDF de una boleta del historial
+    path('historial-boletas/<int:historial_id>/pdf/', historial_boleta_regenerar_pdf_view, name='historial_boleta_pdf'),
     
     # Ajustes manuales de stock (RF-I2)
     path('inventario/ajustes/', ajustes_stock_view, name='ajustes_stock'),

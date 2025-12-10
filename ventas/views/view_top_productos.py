@@ -22,11 +22,12 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.db.models import Sum, Count, Q
 from django.http import HttpResponse
-from datetime import datetime
+from datetime import datetime, time as dt_time
 from decimal import Decimal
 import csv
 
 from ventas.models import Productos, DetalleVenta, Ventas
+from ventas.utils.exportadores import exportar_a_excel, exportar_a_pdf
 
 
 # ================================================================
@@ -91,9 +92,17 @@ def top_productos_view(request):
         ventas_query = Ventas.objects.all()
         
         if fecha_desde:
-            ventas_query = ventas_query.filter(fecha__date__gte=fecha_desde)
+            # Incluir desde el inicio del día (00:00:00)
+            fecha_desde_datetime = timezone.make_aware(
+                datetime.combine(fecha_desde, dt_time.min)
+            )
+            ventas_query = ventas_query.filter(fecha__gte=fecha_desde_datetime)
         if fecha_hasta:
-            ventas_query = ventas_query.filter(fecha__date__lte=fecha_hasta)
+            # Incluir hasta el final del día (23:59:59.999999)
+            fecha_hasta_datetime = timezone.make_aware(
+                datetime.combine(fecha_hasta, dt_time.max)
+            )
+            ventas_query = ventas_query.filter(fecha__lte=fecha_hasta_datetime)
         
         ventas_ids = ventas_query.values_list('id', flat=True)
         
@@ -190,20 +199,17 @@ def top_productos_view(request):
 # =        VISTA: EXPORTAR TOP PRODUCTOS A CSV                  =
 # ================================================================
 
-@login_required
-def exportar_top_productos_csv(request, tipo='cantidad'):
+def _obtener_ranking_productos(request, tipo='cantidad'):
     """
-    Exporta el ranking de productos a formato CSV.
+    Función auxiliar para obtener ranking de productos con filtros aplicados.
     
     Args:
         request: HttpRequest con parámetros de filtro
         tipo: 'cantidad' o 'neto'
         
     Returns:
-        HttpResponse: Archivo CSV descargable
+        list: Lista de diccionarios con datos del ranking
     """
-    
-    # Aplicar mismos filtros que el reporte
     fecha_desde_str = request.GET.get('fecha_desde')
     fecha_hasta_str = request.GET.get('fecha_hasta')
     
@@ -212,22 +218,32 @@ def exportar_top_productos_csv(request, tipo='cantidad'):
     if fecha_desde_str:
         try:
             fecha_desde = datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
-            ventas_query = ventas_query.filter(fecha__date__gte=fecha_desde)
+            # Incluir desde el inicio del día (00:00:00)
+            fecha_desde_datetime = timezone.make_aware(
+                datetime.combine(fecha_desde, dt_time.min)
+            )
+            ventas_query = ventas_query.filter(fecha__gte=fecha_desde_datetime)
         except ValueError:
             pass
     
     if fecha_hasta_str:
         try:
             fecha_hasta = datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
-            ventas_query = ventas_query.filter(fecha__date__lte=fecha_hasta)
+            # Incluir hasta el final del día (23:59:59.999999)
+            fecha_hasta_datetime = timezone.make_aware(
+                datetime.combine(fecha_hasta, dt_time.max)
+            )
+            ventas_query = ventas_query.filter(fecha__lte=fecha_hasta_datetime)
         except ValueError:
             pass
     
     ventas_ids = ventas_query.values_list('id', flat=True)
     
-    # Obtener ranking según tipo
+    # Preparar datos
+    datos = []
+    
     if tipo == 'cantidad':
-        ranking = DetalleVenta.objects.filter(
+        ranking_query = DetalleVenta.objects.filter(
             ventas_id__in=ventas_ids
         ).values(
             'productos_id',
@@ -235,8 +251,23 @@ def exportar_top_productos_csv(request, tipo='cantidad'):
         ).annotate(
             total_cantidad=Sum('cantidad')
         ).order_by('-total_cantidad')[:20]
+        
+        for item in ranking_query:
+            detalles = DetalleVenta.objects.filter(
+                ventas_id__in=ventas_ids,
+                productos_id=item['productos_id']
+            )
+            total_neto = sum(d.cantidad * d.precio_unitario for d in detalles)
+            precio_promedio = total_neto / item['total_cantidad'] if item['total_cantidad'] > 0 else Decimal('0.00')
+            
+            datos.append({
+                'Producto': item['productos__nombre'],
+                'Cantidad Vendida': item['total_cantidad'],
+                'Total Neto': total_neto,
+                'Precio Promedio': precio_promedio,
+            })
     else:
-        # Por neto - necesitamos calcular manualmente
+        # Por neto
         productos_data = {}
         detalles = DetalleVenta.objects.filter(ventas_id__in=ventas_ids)
         
@@ -256,6 +287,32 @@ def exportar_top_productos_csv(request, tipo='cantidad'):
             key=lambda x: x[1]['neto'],
             reverse=True
         )[:20]
+        
+        for producto_id, data in ranking:
+            precio_promedio = data['neto'] / data['cantidad'] if data['cantidad'] > 0 else Decimal('0.00')
+            datos.append({
+                'Producto': data['nombre'],
+                'Cantidad Vendida': data['cantidad'],
+                'Total Neto': data['neto'],
+                'Precio Promedio': precio_promedio,
+            })
+    
+    return datos
+
+
+@login_required
+def exportar_top_productos_csv(request, tipo='cantidad'):
+    """
+    Exporta el ranking de productos a formato CSV.
+    
+    Args:
+        request: HttpRequest con parámetros de filtro
+        tipo: 'cantidad' o 'neto'
+        
+    Returns:
+        HttpResponse: Archivo CSV descargable
+    """
+    datos = _obtener_ranking_productos(request, tipo)
     
     # Crear respuesta CSV
     response = HttpResponse(content_type='text/csv; charset=utf-8')
@@ -265,30 +322,63 @@ def exportar_top_productos_csv(request, tipo='cantidad'):
     writer.writerow(['Producto', 'Cantidad Vendida', 'Total Neto', 'Precio Promedio'])
     
     # Escribir datos
-    for item in ranking:
-        if tipo == 'cantidad':
-            detalles = DetalleVenta.objects.filter(
-                ventas_id__in=ventas_ids,
-                productos_id=item['productos_id']
-            )
-            total_neto = sum(d.cantidad * d.precio_unitario for d in detalles)
-            precio_promedio = total_neto / item['total_cantidad'] if item['total_cantidad'] > 0 else 0
-            
-            writer.writerow([
-                item['productos__nombre'],
-                item['total_cantidad'],
-                float(total_neto),
-                float(precio_promedio),
-            ])
-        else:
-            producto_id, data = item
-            precio_promedio = data['neto'] / data['cantidad'] if data['cantidad'] > 0 else 0
-            writer.writerow([
-                data['nombre'],
-                data['cantidad'],
-                float(data['neto']),
-                float(precio_promedio),
-            ])
+    for item in datos:
+        writer.writerow([
+            item['Producto'],
+            item['Cantidad Vendida'],
+            float(item['Total Neto']),
+            float(item['Precio Promedio']),
+        ])
     
     return response
+
+
+@login_required
+def exportar_top_productos_excel(request, tipo='cantidad'):
+    """
+    Exporta el ranking de productos a formato Excel (XLSX).
+    
+    Args:
+        request: HttpRequest con parámetros de filtro
+        tipo: 'cantidad' o 'neto'
+        
+    Returns:
+        HttpResponse: Archivo Excel descargable
+    """
+    datos = _obtener_ranking_productos(request, tipo)
+    
+    # Generar título
+    titulo = f"Top Productos - {'Por Cantidad' if tipo == 'cantidad' else 'Por Monto Neto'}"
+    fecha_desde_str = request.GET.get('fecha_desde')
+    fecha_hasta_str = request.GET.get('fecha_hasta')
+    if fecha_desde_str and fecha_hasta_str:
+        titulo += f" ({fecha_desde_str} a {fecha_hasta_str})"
+    
+    return exportar_a_excel(datos, f'top_productos_{tipo}', titulo)
+
+
+@login_required
+def exportar_top_productos_pdf(request, tipo='cantidad'):
+    """
+    Exporta el ranking de productos a formato PDF.
+    
+    Args:
+        request: HttpRequest con parámetros de filtro
+        tipo: 'cantidad' o 'neto'
+        
+    Returns:
+        HttpResponse: Archivo PDF descargable
+    """
+    datos = _obtener_ranking_productos(request, tipo)
+    
+    # Generar título
+    titulo = f"Top Productos - {'Por Cantidad' if tipo == 'cantidad' else 'Por Monto Neto'}"
+    fecha_desde_str = request.GET.get('fecha_desde')
+    fecha_hasta_str = request.GET.get('fecha_hasta')
+    if fecha_desde_str and fecha_hasta_str:
+        titulo += f" ({fecha_desde_str} a {fecha_hasta_str})"
+    
+    encabezados = ['Producto', 'Cantidad Vendida', 'Total Neto', 'Precio Promedio']
+    
+    return exportar_a_pdf(datos, f'top_productos_{tipo}', titulo, encabezados)
 

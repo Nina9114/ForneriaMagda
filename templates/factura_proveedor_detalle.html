@@ -98,6 +98,16 @@
                             <label class="form-label">Descuento %</label>
                             <input type="number" name="descuento_pct" id="descuento_pct" class="form-control" step="0.01" min="0" max="100" value="0">
                         </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Fecha Vencimiento (opcional)</label>
+                            <input type="date" name="fecha_vencimiento_producto" id="fecha_vencimiento_producto" class="form-control">
+                            <small class="form-text text-muted">Si no se especifica, se usará la fecha del producto o fecha factura + 30 días</small>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Número de Lote (opcional)</label>
+                            <input type="text" name="lote" id="lote" class="form-control" maxlength="50" placeholder="Ej: LOTE-2025-001">
+                            <small class="form-text text-muted">Si no se especifica, se generará automáticamente</small>
+                        </div>
                         <div class="col-md-2">
                             <label class="form-label">&nbsp;</label>
                             <button type="submit" class="btn btn-primary w-100">Agregar</button>

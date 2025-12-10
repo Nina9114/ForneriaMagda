@@ -17,6 +17,7 @@ from django.db import models
 from django.utils import timezone
 from datetime import timedelta
 from .productos import Productos
+from .proveedores import FacturaProveedor
 
 
 # ================================================================
@@ -79,13 +80,28 @@ class Alertas(models.Model):
         verbose_name='Estado'
     )
     
-    # --- Relación: Producto asociado ---
-    # Cada alerta pertenece a UN producto específico
+    # --- Relación: Producto asociado (opcional) ---
+    # Cada alerta puede estar asociada a un producto específico
     productos = models.ForeignKey(
         Productos,
         on_delete=models.CASCADE,  # Si se borra el producto, se borran sus alertas
         related_name='alertas',    # Para hacer producto.alertas.all()
-        verbose_name='Producto'
+        verbose_name='Producto',
+        null=True,
+        blank=True,
+        help_text='Producto asociado a esta alerta (opcional si es alerta de factura)'
+    )
+    
+    # --- Relación: Factura asociada (opcional) ---
+    # Cada alerta puede estar asociada a una factura de proveedor
+    factura_proveedor = models.ForeignKey(
+        FacturaProveedor,
+        on_delete=models.CASCADE,  # Si se borra la factura, se borran sus alertas
+        related_name='alertas',    # Para hacer factura.alertas.all()
+        verbose_name='Factura Proveedor',
+        null=True,
+        blank=True,
+        help_text='Factura asociada a esta alerta (opcional si es alerta de producto)'
     )
     
     # ============================================================
@@ -101,14 +117,43 @@ class Alertas(models.Model):
     
     def get_dias_hasta_vencer(self):
         """
-        Calcula cuántos días faltan para que venza el producto.
+        Calcula cuántos días faltan para que venza el producto o la factura.
         
         Returns:
-            int: Número de días hasta la fecha de caducidad
+            int: Número de días hasta la fecha de caducidad o vencimiento
+            None: Si no hay fecha de vencimiento disponible
         """
         hoy = timezone.now().date()
-        dias = (self.productos.caducidad - hoy).days
-        return dias
+        
+        # Si es alerta de producto
+        if self.productos and self.productos.caducidad:
+            dias = (self.productos.caducidad - hoy).days
+            return dias
+        
+        # Si es alerta de factura
+        if self.factura_proveedor and self.factura_proveedor.fecha_vencimiento:
+            dias = (self.factura_proveedor.fecha_vencimiento - hoy).days
+            return dias
+        
+        # Si no hay fecha disponible
+        return None
+    
+    def get_dias_hasta_vencer_display(self):
+        """
+        Retorna el texto formateado para mostrar los días hasta vencer.
+        
+        Returns:
+            str: Texto formateado (ej: "5 días", "Vencida hace 2 días", "—")
+        """
+        dias = self.get_dias_hasta_vencer()
+        
+        if dias is None:
+            return "—"
+        
+        if dias < 0:
+            return f"Vencida hace {abs(dias)} días"
+        else:
+            return f"{dias} días"
     
     def get_color_badge(self):
         """
@@ -162,13 +207,14 @@ class Alertas(models.Model):
     @staticmethod
     def generar_alertas_automaticas():
         """
-        Genera alertas automáticamente para todos los productos
-        según sus fechas de caducidad Y niveles de stock.
+        Genera alertas automáticamente para:
+        - Productos según sus fechas de caducidad Y niveles de stock
+        - Facturas de proveedores según fecha de vencimiento de pago
         
         Este método debe ejecutarse diariamente (puede ser con un cron job
         o un comando de Django que se ejecute al iniciar el servidor).
         
-        Lógica de VENCIMIENTO:
+        Lógica de VENCIMIENTO (productos):
         - Roja: 0 a 13 días hasta vencer
         - Amarilla: 14 a 29 días hasta vencer
         - Verde: 30 o más días hasta vencer
@@ -176,6 +222,11 @@ class Alertas(models.Model):
         Lógica de STOCK BAJO:
         - Roja: cantidad <= stock_minimo (o <= 5 si no hay stock_minimo definido)
         - Se resuelve automáticamente cuando el stock vuelve a ser normal
+        
+        Lógica de FACTURAS VENCIDAS:
+        - Roja: Factura vencida sin pagar
+        - Amarilla: Factura vence en 7 días o menos
+        - Verde: Factura vence en 8-30 días
         
         Returns:
             dict: Diccionario con estadísticas de alertas generadas
@@ -188,6 +239,7 @@ class Alertas(models.Model):
             'amarilla': 0,
             'verde': 0,
             'stock_bajo': 0,
+            'facturas_vencidas': 0,
             'total': 0
         }
         
@@ -296,6 +348,78 @@ class Alertas(models.Model):
                     mensaje__contains='STOCK BAJO'
                 )
                 for alerta in alertas_stock_activas:
+                    alerta.marcar_como_resuelta()
+        
+        # ============================================================
+        # PARTE 3: ALERTAS DE FACTURAS VENCIDAS
+        # ============================================================
+        # Obtener facturas pendientes de pago
+        facturas_pendientes = FacturaProveedor.objects.filter(
+            eliminado__isnull=True,
+            estado_pago__in=['pendiente', 'parcial']  # Solo facturas no pagadas completamente
+        )
+        
+        for factura in facturas_pendientes:
+            if not factura.fecha_vencimiento:
+                continue  # Si no tiene fecha de vencimiento, saltar
+            
+            # Calcular días hasta vencer o días vencida
+            dias_para_vencer = (factura.fecha_vencimiento - hoy).days
+            
+            # Determinar tipo de alerta
+            if dias_para_vencer < 0:
+                # Factura ya vencida - ROJA urgente
+                tipo = 'roja'
+                mensaje = f"Factura {factura.numero_factura} de {factura.proveedor.nombre} VENCIDA hace {abs(dias_para_vencer)} días - ${factura.total_con_iva}"
+            elif dias_para_vencer <= 7:
+                # Factura vence en 7 días o menos - ROJA
+                tipo = 'roja'
+                mensaje = f"Factura {factura.numero_factura} de {factura.proveedor.nombre} vence en {dias_para_vencer} días - ${factura.total_con_iva}"
+            elif dias_para_vencer <= 30:
+                # Factura vence en 8-30 días - AMARILLA
+                tipo = 'amarilla'
+                mensaje = f"Factura {factura.numero_factura} de {factura.proveedor.nombre} vence en {dias_para_vencer} días - ${factura.total_con_iva}"
+            else:
+                # Factura vence en más de 30 días - VERDE (opcional, puedes omitir)
+                tipo = 'verde'
+                mensaje = f"Factura {factura.numero_factura} de {factura.proveedor.nombre} vence en {dias_para_vencer} días - ${factura.total_con_iva}"
+            
+            # Verificar si ya existe una alerta activa para esta factura
+            alerta_factura = Alertas.objects.filter(
+                factura_proveedor=factura,
+                estado='activa'
+            ).first()
+            
+            if alerta_factura:
+                # Si existe, actualizar el tipo y mensaje si cambió
+                if alerta_factura.tipo_alerta != tipo or alerta_factura.mensaje != mensaje:
+                    alerta_factura.tipo_alerta = tipo
+                    alerta_factura.mensaje = mensaje
+                    alerta_factura.fecha_generada = timezone.now()
+                    alerta_factura.save()
+                    alertas_creadas[tipo] += 1
+                    alertas_creadas['facturas_vencidas'] += 1
+                    alertas_creadas['total'] += 1
+            else:
+                # Si no existe, crear nueva alerta de factura
+                Alertas.objects.create(
+                    tipo_alerta=tipo,
+                    mensaje=mensaje,
+                    factura_proveedor=factura,
+                    productos=None,  # No es alerta de producto
+                    estado='activa'
+                )
+                alertas_creadas[tipo] += 1
+                alertas_creadas['facturas_vencidas'] += 1
+                alertas_creadas['total'] += 1
+            
+            # Si la factura se pagó completamente, resolver alertas activas
+            if factura.estado_pago == 'pagado':
+                alertas_factura_activas = Alertas.objects.filter(
+                    factura_proveedor=factura,
+                    estado='activa'
+                )
+                for alerta in alertas_factura_activas:
                     alerta.marcar_como_resuelta()
         
         return alertas_creadas

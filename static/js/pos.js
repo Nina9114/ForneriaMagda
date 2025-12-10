@@ -977,12 +977,38 @@ function abrirModalConfirmacion() {
     document.getElementById('monto-pagado-input').value = '';
     document.getElementById('modal-vuelto').textContent = '0';
     
-    // Agregar evento para calcular vuelto en tiempo real
+    // Agregar evento para calcular vuelto en tiempo real (solo para efectivo)
     const montoPagadoInput = document.getElementById('monto-pagado-input');
     montoPagadoInput.removeEventListener('input', calcularVueltoModal); // Evitar duplicados
     montoPagadoInput.addEventListener('input', function() {
         calcularVueltoModal(total);
     });
+    
+    // Manejar cambio de medio de pago
+    const medioPagoSelect = document.getElementById('medio-pago-select');
+    const montoPagadoContainer = document.getElementById('monto-pagado-container');
+    const vueltoContainer = document.getElementById('vuelto-container');
+    
+    function actualizarCamposPago() {
+        const medioPago = medioPagoSelect.value;
+        if (medioPago === 'efectivo') {
+            montoPagadoContainer.style.display = 'block';
+            vueltoContainer.style.display = 'block';
+            montoPagadoInput.required = true;
+            // Establecer monto pagado al total por defecto
+            montoPagadoInput.value = Math.round(total);
+            calcularVueltoModal(total);
+        } else {
+            montoPagadoContainer.style.display = 'none';
+            vueltoContainer.style.display = 'none';
+            montoPagadoInput.required = false;
+            montoPagadoInput.value = Math.round(total);
+            document.getElementById('modal-vuelto').textContent = '0';
+        }
+    }
+    
+    medioPagoSelect.addEventListener('change', actualizarCamposPago);
+    actualizarCamposPago(); // Inicializar
     
     // Abrir el modal
     const modal = new bootstrap.Modal(document.getElementById('modal-confirmar-venta'));
@@ -1036,12 +1062,8 @@ function procesarVenta() {
         return;
     }
     
-    // Validar monto pagado
-    const montoPagado = parseFloat(document.getElementById('monto-pagado-input').value);
-    if (isNaN(montoPagado) || montoPagado <= 0) {
-        mostrarAlerta('error', 'Debe ingresar el monto pagado por el cliente');
-        return;
-    }
+    // Obtener medio de pago
+    const medioPago = document.getElementById('medio-pago-select').value;
     
     // Calcular total (precio ya incluye IVA)
     let totalConIvaIncluido = 0;
@@ -1053,10 +1075,22 @@ function procesarVenta() {
     // Total = precio original (con IVA incluido)
     const total = totalConIvaIncluido;
     
-    // Validar que el pago sea suficiente
-    if (montoPagado < total) {
-        mostrarAlerta('error', 'El monto pagado es insuficiente');
-        return;
+    // Validar monto pagado según el medio de pago
+    let montoPagado;
+    if (medioPago === 'efectivo') {
+        montoPagado = parseFloat(document.getElementById('monto-pagado-input').value);
+        if (isNaN(montoPagado) || montoPagado <= 0) {
+            mostrarAlerta('error', 'Debe ingresar el monto pagado por el cliente');
+            return;
+        }
+        // Validar que el pago sea suficiente
+        if (montoPagado < total) {
+            mostrarAlerta('error', 'El monto pagado es insuficiente');
+            return;
+        }
+    } else {
+        // Para otros métodos de pago, el monto pagado es igual al total
+        montoPagado = total;
     }
     
     // Deshabilitar el botón para evitar doble click
@@ -1077,6 +1111,7 @@ function procesarVenta() {
         cliente_id: clienteId,
         canal_venta: tipoVenta,  // 'presencial' o 'delivery'
         carrito: carritoParaEnviar,
+        medio_pago: medioPago,
         monto_pagado: montoPagado,
         descuento: 0  // Descuento global (no lo usamos, solo descuentos individuales)
     };
@@ -1204,8 +1239,20 @@ PRODUCTOS:
 `;
     });
     
-    // Calcular vuelto
-    const vuelto = datosVenta.monto_pagado - total;
+    // Obtener medio de pago
+    const medioPago = datosVenta.medio_pago || 'efectivo';
+    const medioPagoDisplayMap = {
+        'efectivo': 'Efectivo',
+        'tarjeta_debito': 'Tarjeta Débito',
+        'tarjeta_credito': 'Tarjeta Crédito',
+        'transferencia': 'Transferencia',
+        'cheque': 'Cheque',
+        'otro': 'Otro'
+    };
+    const medioPagoDisplay = medioPagoDisplayMap[medioPago] || 'Efectivo';
+    
+    // Calcular vuelto (solo para efectivo)
+    const vuelto = medioPago === 'efectivo' ? (datosVenta.monto_pagado - total) : 0;
     
     // Agregar totales
     comprobante += `
@@ -1215,8 +1262,17 @@ PRODUCTOS:
 ───────────────────────────────────────────────
   TOTAL (con IVA):           $${formatearPrecio(Math.round(total))}
 ───────────────────────────────────────────────
+  Medio de pago:             ${medioPagoDisplay}
   Pago recibido:             $${formatearPrecio(datosVenta.monto_pagado)}
-  Vuelto:                    $${formatearPrecio(vuelto)}
+`;
+    
+    // Agregar vuelto solo si es efectivo
+    if (medioPago === 'efectivo') {
+        comprobante += `  Vuelto:                    $${formatearPrecio(vuelto)}
+`;
+    }
+    
+    comprobante += `
 ═══════════════════════════════════════════════
 
           ¡Gracias por su compra!

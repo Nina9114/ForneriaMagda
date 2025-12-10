@@ -118,34 +118,133 @@ def procesar_ajuste_stock_ajax(request):
         
         # Procesar ajuste dentro de una transacción
         with transaction.atomic():
-            # Actualizar stock según el tipo
             if tipo == 'entrada':
-                producto.cantidad = (producto.cantidad or 0) + cantidad
+                # Para ENTRADAS: crear un lote nuevo para mantener trazabilidad
+                from ventas.models import Lote
+                from django.utils import timezone
+                from datetime import timedelta, date
+                from decimal import Decimal
+                
+                # Obtener fecha de caducidad del ajuste (si se proporcionó) o usar fecha por defecto
+                fecha_caducidad_ajuste = data.get('fecha_caducidad')
+                if fecha_caducidad_ajuste:
+                    from datetime import datetime
+                    try:
+                        fecha_caducidad_obj = datetime.strptime(fecha_caducidad_ajuste, '%Y-%m-%d').date()
+                    except ValueError:
+                        fecha_caducidad_obj = date.today() + timedelta(days=30)  # Default: 30 días
+                else:
+                    # Si no se especifica, usar fecha del producto o fecha actual + 30 días
+                    fecha_caducidad_obj = producto.caducidad if producto.caducidad else (date.today() + timedelta(days=30))
+                
+                # Generar número de lote automático
+                numero_lote = f"AJUSTE-{producto.id}-{timezone.now().strftime('%Y%m%d%H%M%S')}"
+                
+                # Crear lote para el ajuste
+                lote_ajuste = Lote.objects.create(
+                    productos=producto,
+                    numero_lote=numero_lote,
+                    cantidad=Decimal(str(cantidad)),
+                    cantidad_inicial=Decimal(str(cantidad)),
+                    fecha_elaboracion=date.today(),
+                    fecha_caducidad=fecha_caducidad_obj,
+                    fecha_recepcion=timezone.now(),
+                    origen='ajuste_manual',
+                    estado='activo'
+                )
+                
+                # Actualizar cantidad del producto desde lotes
+                producto.cantidad = producto.calcular_cantidad_desde_lotes() if hasattr(producto, 'calcular_cantidad_desde_lotes') else (producto.cantidad or 0) + cantidad
                 if producto.stock_actual is not None:
                     producto.stock_actual = (producto.stock_actual or 0) + cantidad
+                
+                # Actualizar fecha de caducidad del producto con la del lote más antiguo
+                lote_mas_antiguo = Lote.objects.filter(
+                    productos=producto,
+                    estado='activo',
+                    cantidad__gt=0
+                ).order_by('fecha_caducidad', 'fecha_recepcion').first()
+                
+                if lote_mas_antiguo and lote_mas_antiguo.fecha_caducidad:
+                    producto.caducidad = lote_mas_antiguo.fecha_caducidad
+                
+                producto.save(update_fields=['cantidad', 'stock_actual', 'caducidad'])
+                
+                # Crear movimiento en kardex
+                MovimientosInventario.objects.create(
+                    tipo_movimiento='entrada',
+                    cantidad=cantidad,
+                    productos=producto,
+                    origen='ajuste_manual',
+                    referencia_id=lote_ajuste.id,
+                    tipo_referencia='lote'
+                )
             else:  # salida
-                stock_actual = producto.cantidad or 0
-                if cantidad > stock_actual:
+                # Para SALIDAS: reducir lotes usando FIFO (igual que en ventas)
+                from ventas.models import Lote
+                from decimal import Decimal
+                
+                cantidad_restante = Decimal(str(cantidad))
+                
+                # Obtener lotes activos ordenados por fecha de caducidad (más antiguos primero)
+                lotes_activos = Lote.objects.filter(
+                    productos=producto,
+                    estado='activo',
+                    cantidad__gt=0
+                ).order_by('fecha_caducidad', 'fecha_recepcion')
+                
+                stock_disponible = sum(Decimal(str(l.cantidad)) for l in lotes_activos)
+                if stock_disponible < cantidad_restante:
                     return JsonResponse({
                         'success': False,
-                        'mensaje': f'Stock insuficiente. Disponible: {stock_actual}, Solicitado: {cantidad}'
+                        'mensaje': f'Stock insuficiente. Disponible: {stock_disponible}, Solicitado: {cantidad}'
                     }, status=400)
                 
-                producto.cantidad = stock_actual - cantidad
+                for lote in lotes_activos:
+                    if cantidad_restante <= Decimal('0'):
+                        break
+                    
+                    cantidad_lote = Decimal(str(lote.cantidad))
+                    cantidad_a_tomar = min(cantidad_restante, cantidad_lote)
+                    
+                    nueva_cantidad_lote = cantidad_lote - cantidad_a_tomar
+                    lote.cantidad = nueva_cantidad_lote
+                    
+                    if nueva_cantidad_lote <= Decimal('0'):
+                        lote.estado = 'agotado'
+                        lote.cantidad = Decimal('0')
+                    
+                    lote.save(update_fields=['cantidad', 'estado'])
+                    cantidad_restante = cantidad_restante - cantidad_a_tomar
+                
+                # Actualizar cantidad del producto desde lotes
+                producto.cantidad = producto.calcular_cantidad_desde_lotes() if hasattr(producto, 'calcular_cantidad_desde_lotes') else (producto.cantidad or 0) - cantidad
                 if producto.stock_actual is not None:
                     producto.stock_actual = max(0, (producto.stock_actual or 0) - cantidad)
-            
-            producto.save(update_fields=['cantidad', 'stock_actual'])
-            
-            # Crear movimiento en kardex
-            MovimientosInventario.objects.create(
-                tipo_movimiento=tipo,
-                cantidad=cantidad,
-                productos=producto,
-                origen='ajuste',
-                referencia_id=None,
-                tipo_referencia='ajuste_manual'
-            )
+                
+                # Actualizar fecha de caducidad del producto con la del lote más antiguo activo
+                lote_mas_antiguo = Lote.objects.filter(
+                    productos=producto,
+                    estado='activo',
+                    cantidad__gt=0
+                ).order_by('fecha_caducidad', 'fecha_recepcion').first()
+                
+                if lote_mas_antiguo and lote_mas_antiguo.fecha_caducidad:
+                    producto.caducidad = lote_mas_antiguo.fecha_caducidad
+                elif not lote_mas_antiguo:
+                    producto.caducidad = None
+                
+                producto.save(update_fields=['cantidad', 'stock_actual', 'caducidad'])
+                
+                # Crear movimiento en kardex
+                MovimientosInventario.objects.create(
+                    tipo_movimiento='salida',
+                    cantidad=cantidad,
+                    productos=producto,
+                    origen='ajuste_manual',
+                    referencia_id=None,
+                    tipo_referencia='ajuste_manual'
+                )
         
         return JsonResponse({
             'success': True,

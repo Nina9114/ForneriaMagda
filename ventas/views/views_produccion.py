@@ -39,41 +39,21 @@ def produccion_list_view(request):
     # Obtener parámetros de filtro
     producto_id = request.GET.get('producto_id')
     estado = request.GET.get('estado', 'activo')
-    origen_filtro = request.GET.get('origen', '').strip()  # Nuevo filtro de origen
     fecha_desde = request.GET.get('fecha_desde')
     fecha_hasta = request.GET.get('fecha_hasta')
     buscar = request.GET.get('buscar', '').strip()
     
-    # Debug: imprimir parámetros recibidos
-    import logging
-    logger = logging.getLogger('ventas')
-    logger.info(f'[PRODUCCION] producto_id={producto_id}, origen_filtro="{origen_filtro}", estado={estado}')
-    
-    # Obtener lotes
-    # Si se filtra por producto_id, mostrar TODOS los lotes de ese producto (no solo producción propia)
-    # Si no hay filtro de producto, mostrar solo lotes de producción propia por defecto
+    # Obtener lotes - SOLO producción propia
+    # Si se filtra por producto_id, mostrar solo lotes de producción propia de ese producto
+    # Si no hay filtro de producto, mostrar todos los lotes de producción propia
     if producto_id:
-        # Mostrar todos los lotes del producto cuando se filtra por producto
-        lotes = Lote.objects.filter(productos_id=producto_id)
-        # Aplicar filtro de origen si se especifica
-        if origen_filtro and origen_filtro != 'todos':
-            lotes = lotes.filter(origen=origen_filtro)
+        lotes = Lote.objects.filter(
+            productos_id=producto_id,
+            origen='produccion_propia'  # Solo producción propia
+        )
     else:
-        # Sin filtro de producto, aplicar filtro de origen
-        if origen_filtro == 'todos':
-            # Si se selecciona "Todos los orígenes", mostrar todos los lotes
-            lotes = Lote.objects.all()
-            logger.info(f'[PRODUCCION] Mostrando TODOS los lotes (origen_filtro=todos)')
-        elif origen_filtro:
-            # Si hay un origen específico, filtrar por ese origen
-            lotes = Lote.objects.filter(origen=origen_filtro)
-            logger.info(f'[PRODUCCION] Filtrando por origen: {origen_filtro}')
-        else:
-            # Por defecto (origen_filtro vacío), solo producción propia
-            lotes = Lote.objects.filter(origen='produccion_propia')
-            logger.info(f'[PRODUCCION] Por defecto: solo producción propia')
-    
-    logger.info(f'[PRODUCCION] Total lotes encontrados: {lotes.count()}')
+        # Solo lotes de producción propia
+        lotes = Lote.objects.filter(origen='produccion_propia')
     
     # Aplicar otros filtros
     
@@ -111,25 +91,23 @@ def produccion_list_view(request):
         lote.dias_hasta_vencer_abs = abs(dias) if dias is not None and dias < 0 else dias
     
     # Obtener productos para el filtro
+    # Solo mostrar productos que tienen al menos un lote de producción propia
+    # Esto evita mostrar productos que solo son comprados a proveedores
     productos = Productos.objects.filter(
-        eliminado__isnull=True
-    ).order_by('nombre')
+        eliminado__isnull=True,
+        lotes__origen='produccion_propia'  # Solo productos con lotes de producción propia (usar 'lotes' plural)
+    ).distinct().order_by('nombre')
     
     # Estadísticas (usar el QuerySet original antes de convertirlo a lista)
     # Aplicar la misma lógica de filtrado que para los lotes mostrados
+    # Solo producción propia
     if producto_id:
-        lotes_qs = Lote.objects.filter(productos_id=producto_id)
+        lotes_qs = Lote.objects.filter(
+            productos_id=producto_id,
+            origen='produccion_propia'
+        )
     else:
-        if origen_filtro and origen_filtro != 'todos':
-            lotes_qs = Lote.objects.filter(origen=origen_filtro)
-        elif origen_filtro == 'todos':
-            lotes_qs = Lote.objects.all()
-        else:
-            lotes_qs = Lote.objects.filter(origen='produccion_propia')
-    
-    # Aplicar filtro de origen adicional si hay filtro de producto
-    if producto_id and origen_filtro and origen_filtro != 'todos':
-        lotes_qs = lotes_qs.filter(origen=origen_filtro)
+        lotes_qs = Lote.objects.filter(origen='produccion_propia')
     
     # Aplicar otros filtros a las estadísticas
     if estado and estado != 'todos':
@@ -164,7 +142,6 @@ def produccion_list_view(request):
         'productos': productos,
         'producto_id': producto_id,
         'estado': estado,
-        'origen_filtro': origen_filtro or '',
         'fecha_desde': fecha_desde,
         'fecha_hasta': fecha_hasta,
         'buscar': buscar,
@@ -172,13 +149,6 @@ def produccion_list_view(request):
         'lotes_activos': lotes_activos,
         'lotes_vencidos': lotes_vencidos,
         'total_cantidad': total_cantidad,
-        'origenes_disponibles': [
-            ('', 'Producción Propia (por defecto)'),
-            ('todos', 'Todos los orígenes'),
-            ('produccion_propia', 'Producción Propia'),
-            ('compra', 'Compra a Proveedor'),
-            ('ajuste_manual', 'Ajuste Manual'),
-        ],
     }
     
     return render(request, 'produccion_list.html', context)

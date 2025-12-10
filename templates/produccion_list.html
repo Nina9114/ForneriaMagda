@@ -22,9 +22,9 @@
                     </h2>
                     <p class="text-muted" style="margin: 5px 0 0 0;">
                         {% if producto_id %}
-                            Todos los lotes del producto seleccionado
+                            Lotes de producción propia del producto seleccionado
                         {% else %}
-                            Registro de lotes de producción propia
+                            Registro y gestión de lotes de producción propia
                         {% endif %}
                     </p>
                 </div>
@@ -58,17 +58,7 @@
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Origen</label>
-                            <select name="origen" class="form-select">
-                                {% for valor, etiqueta in origenes_disponibles %}
-                                <option value="{{ valor }}" {% if origen_filtro == valor %}selected{% endif %}>
-                                    {{ etiqueta }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-2">
+                        <div class="col-md-3">
                             <label class="form-label">Estado</label>
                             <select name="estado" class="form-select">
                                 <option value="todos" {% if estado == 'todos' %}selected{% endif %}>Todos</option>

@@ -23,11 +23,12 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.db.models import Sum, Count, Q
 from django.http import HttpResponse
-from datetime import datetime
+from datetime import datetime, time as dt_time
 from decimal import Decimal
 import csv
 
 from ventas.models import Ventas, DetalleVenta, Clientes
+from ventas.utils.exportadores import exportar_a_excel, exportar_a_pdf
 
 
 # ================================================================
@@ -103,9 +104,17 @@ def reporte_ventas_view(request):
         
         # Filtro por fecha
         if fecha_desde:
-            ventas = ventas.filter(fecha__date__gte=fecha_desde)
+            # Incluir desde el inicio del día (00:00:00)
+            fecha_desde_datetime = timezone.make_aware(
+                datetime.combine(fecha_desde, dt_time.min)
+            )
+            ventas = ventas.filter(fecha__gte=fecha_desde_datetime)
         if fecha_hasta:
-            ventas = ventas.filter(fecha__date__lte=fecha_hasta)
+            # Incluir hasta el final del día (23:59:59.999999)
+            fecha_hasta_datetime = timezone.make_aware(
+                datetime.combine(fecha_hasta, dt_time.max)
+            )
+            ventas = ventas.filter(fecha__lte=fecha_hasta_datetime)
         
         # Filtro por cliente
         if cliente_id and cliente_id != '':
@@ -173,6 +182,56 @@ def reporte_ventas_view(request):
 # =        VISTA: EXPORTAR REPORTE DE VENTAS A CSV              =
 # ================================================================
 
+def _obtener_ventas_filtradas(request):
+    """
+    Función auxiliar para obtener ventas con filtros aplicados.
+    
+    Args:
+        request: HttpRequest con parámetros de filtro
+        
+    Returns:
+        QuerySet: Ventas filtradas
+    """
+    ventas = Ventas.objects.select_related('clientes').all()
+    
+    # Filtros desde GET
+    fecha_desde_str = request.GET.get('fecha_desde')
+    fecha_hasta_str = request.GET.get('fecha_hasta')
+    cliente_id = request.GET.get('cliente_id')
+    canal_venta = request.GET.get('canal_venta')
+    
+    # Aplicar filtros de fecha
+    if fecha_desde_str:
+        try:
+            fecha_desde = datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
+            # Incluir desde el inicio del día (00:00:00)
+            fecha_desde_datetime = timezone.make_aware(
+                datetime.combine(fecha_desde, dt_time.min)
+            )
+            ventas = ventas.filter(fecha__gte=fecha_desde_datetime)
+        except ValueError:
+            pass
+    
+    if fecha_hasta_str:
+        try:
+            fecha_hasta = datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
+            # Incluir hasta el final del día (23:59:59.999999)
+            fecha_hasta_datetime = timezone.make_aware(
+                datetime.combine(fecha_hasta, dt_time.max)
+            )
+            ventas = ventas.filter(fecha__lte=fecha_hasta_datetime)
+        except ValueError:
+            pass
+    
+    if cliente_id and cliente_id != '':
+        ventas = ventas.filter(clientes_id=cliente_id)
+    
+    if canal_venta and canal_venta != '':
+        ventas = ventas.filter(canal_venta=canal_venta)
+    
+    return ventas.order_by('-fecha')
+
+
 @login_required
 def exportar_ventas_csv(request):
     """
@@ -184,38 +243,7 @@ def exportar_ventas_csv(request):
     Returns:
         HttpResponse: Archivo CSV descargable
     """
-    
-    # Aplicar mismos filtros que el reporte
-    ventas = Ventas.objects.select_related('clientes').all()
-    
-    # Filtros desde GET
-    fecha_desde_str = request.GET.get('fecha_desde')
-    fecha_hasta_str = request.GET.get('fecha_hasta')
-    cliente_id = request.GET.get('cliente_id')
-    canal_venta = request.GET.get('canal_venta')
-    
-    # Aplicar filtros
-    if fecha_desde_str:
-        try:
-            fecha_desde = datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
-            ventas = ventas.filter(fecha__date__gte=fecha_desde)
-        except ValueError:
-            pass
-    
-    if fecha_hasta_str:
-        try:
-            fecha_hasta = datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
-            ventas = ventas.filter(fecha__date__lte=fecha_hasta)
-        except ValueError:
-            pass
-    
-    if cliente_id and cliente_id != '':
-        ventas = ventas.filter(clientes_id=cliente_id)
-    
-    if canal_venta and canal_venta != '':
-        ventas = ventas.filter(canal_venta=canal_venta)
-    
-    ventas = ventas.order_by('-fecha')
+    ventas = _obtener_ventas_filtradas(request)
     
     # Crear respuesta CSV
     response = HttpResponse(content_type='text/csv; charset=utf-8')
@@ -244,4 +272,79 @@ def exportar_ventas_csv(request):
         ])
     
     return response
+
+
+@login_required
+def exportar_ventas_excel(request):
+    """
+    Exporta el reporte de ventas a formato Excel (XLSX).
+    
+    Args:
+        request: HttpRequest con parámetros de filtro
+        
+    Returns:
+        HttpResponse: Archivo Excel descargable
+    """
+    ventas = _obtener_ventas_filtradas(request)
+    
+    # Preparar datos
+    datos = []
+    for venta in ventas:
+        datos.append({
+            'Folio': venta.folio or f'VENTA-{venta.id}',
+            'Fecha': venta.fecha.strftime('%d/%m/%Y %H:%M'),
+            'Cliente': venta.clientes.nombre if venta.clientes else 'Cliente Genérico',
+            'Canal': venta.canal_venta,
+            'Total Neto': venta.total_sin_iva,
+            'IVA': venta.total_iva,
+            'Total con IVA': venta.total_con_iva,
+            'Descuento': venta.descuento,
+        })
+    
+    # Generar título con filtros
+    titulo = "Reporte de Ventas"
+    fecha_desde_str = request.GET.get('fecha_desde')
+    fecha_hasta_str = request.GET.get('fecha_hasta')
+    if fecha_desde_str and fecha_hasta_str:
+        titulo += f" ({fecha_desde_str} a {fecha_hasta_str})"
+    
+    return exportar_a_excel(datos, 'reporte_ventas', titulo)
+
+
+@login_required
+def exportar_ventas_pdf(request):
+    """
+    Exporta el reporte de ventas a formato PDF.
+    
+    Args:
+        request: HttpRequest con parámetros de filtro
+        
+    Returns:
+        HttpResponse: Archivo PDF descargable
+    """
+    ventas = _obtener_ventas_filtradas(request)
+    
+    # Preparar datos
+    datos = []
+    for venta in ventas:
+        datos.append({
+            'Folio': venta.folio or f'VENTA-{venta.id}',
+            'Fecha': venta.fecha.strftime('%d/%m/%Y %H:%M'),
+            'Cliente': venta.clientes.nombre if venta.clientes else 'Cliente Genérico',
+            'Canal': venta.canal_venta,
+            'Total Neto': venta.total_sin_iva,
+            'IVA': venta.total_iva,
+            'Total con IVA': venta.total_con_iva,
+        })
+    
+    # Generar título con filtros
+    titulo = "Reporte de Ventas"
+    fecha_desde_str = request.GET.get('fecha_desde')
+    fecha_hasta_str = request.GET.get('fecha_hasta')
+    if fecha_desde_str and fecha_hasta_str:
+        titulo += f" ({fecha_desde_str} a {fecha_hasta_str})"
+    
+    encabezados = ['Folio', 'Fecha', 'Cliente', 'Canal', 'Total Neto', 'IVA', 'Total con IVA']
+    
+    return exportar_a_pdf(datos, 'reporte_ventas', titulo, encabezados)
 

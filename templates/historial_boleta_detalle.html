@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block contenido %}
+<!-- ================================================================ -->
+<!-- =                                                              = -->
+<!-- =              DETALLE DE BOLETA DEL HISTORIAL                = -->
+<!-- =                                                              = -->
+<!-- ================================================================ -->
+<!--
+    Esta página muestra los detalles completos de una boleta
+    almacenada en el historial. Permite revisar la información
+    original de la boleta incluso si la venta fue modificada.
+-->
+
+<div class="dashboard-main-container">
+    <!-- Sidebar de navegación -->
+    {% include 'includes/sidebar.html' with active_page='historial_boletas' %}
+
+    <div class="dashboard-content-wrapper">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <h1 class="dashboard-main-title">
+                <i class="bi bi-receipt-cutoff"></i> Detalle de Boleta: {{ historial.folio }}
+            </h1>
+            <div class="header-actions">
+                <a href="{% url 'historial_boleta_pdf' historial.id %}" class="btn btn-danger">
+                    <i class="bi bi-file-pdf"></i> Descargar PDF
+                </a>
+                <a href="{% url 'historial_boletas_list' %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Volver
+                </a>
+            </div>
+        </header>
+
+        <!-- Contenido principal -->
+        <main class="dashboard-content">
+            
+            <!-- ============================================ -->
+            <!-- INFORMACIÓN DE LA BOLETA                     -->
+            <!-- ============================================ -->
+            <div class="card shadow-sm mb-4" style="background: rgba(26, 26, 26, 0.8); border: 2px solid #ffd700;">
+                <div class="card-header">
+                    <h5 class="mb-0 text-warning">
+                        <i class="bi bi-info-circle"></i> Información de la Boleta
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong class="text-warning">Folio:</strong> {{ historial.folio }}</p>
+                            <p><strong class="text-warning">Fecha de Emisión:</strong> {{ historial.fecha_emision|date:"d/m/Y H:i" }}</p>
+                            <p><strong class="text-warning">Fecha de Venta:</strong> {{ historial.fecha_venta|date:"d/m/Y H:i" }}</p>
+                            <p><strong class="text-warning">Cliente:</strong> {{ historial.cliente_nombre }}</p>
+                            <p><strong class="text-warning">Canal de Venta:</strong> 
+                                <span class="badge {% if historial.canal_venta == 'presencial' %}bg-primary{% else %}bg-info{% endif %}">
+                                    {{ historial.get_canal_venta_display|default:historial.canal_venta|capfirst }}
+                                </span>
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong class="text-warning">Total:</strong> 
+                                <span class="fs-4 text-success">${{ historial.total_con_iva|floatformat:"0" }}</span>
+                            </p>
+                            <p><strong class="text-warning">Número de Productos:</strong> 
+                                <span class="badge bg-info">{{ historial.num_productos }}</span>
+                            </p>
+                            <p><strong class="text-warning">Usuario Emisor:</strong> {{ historial.usuario_emisor|default:"Sistema" }}</p>
+                            <p><strong class="text-warning">Estado:</strong> 
+                                {% if historial.modificado %}
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="bi bi-pencil"></i> Modificada
+                                    </span>
+                                    {% if historial.fecha_modificacion %}
+                                        <br><small class="text-muted">Modificada el: {{ historial.fecha_modificacion|date:"d/m/Y H:i" }}</small>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-circle"></i> Original
+                                    </span>
+                                {% endif %}
+                            </p>
+                            {% if historial.observaciones %}
+                            <p><strong class="text-warning">Observaciones:</strong> 
+                                <span class="text-muted">{{ historial.observaciones }}</span>
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================ -->
+            <!-- DETALLES DE PRODUCTOS                        -->
+            <!-- ============================================ -->
+            <div class="card shadow-sm mb-4" style="background: rgba(26, 26, 26, 0.8); border: 2px solid #ffd700;">
+                <div class="card-header">
+                    <h5 class="mb-0 text-warning">
+                        <i class="bi bi-list-ul"></i> Productos
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if datos_boleta.detalles %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead style="background: rgba(212, 175, 55, 0.2);">
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th class="text-center">Cantidad</th>
+                                        <th class="text-end">Precio Unitario</th>
+                                        <th class="text-end">Descuento %</th>
+                                        <th class="text-end">Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for detalle in datos_boleta.detalles %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ detalle.producto.nombre }}</strong>
+                                            {% if detalle.producto.marca %}
+                                                <br><small class="text-muted">{{ detalle.producto.marca }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">{{ detalle.cantidad }}</td>
+                                        <td class="text-end">${{ detalle.precio_unitario }}</td>
+                                        <td class="text-end">
+                                            {% if detalle.descuento_pct and detalle.descuento_pct != "0.00" %}
+                                                {{ detalle.descuento_pct }}%
+                                            {% else %}
+                                                —
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            <strong class="text-success">${{ detalle.subtotal }}</strong>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="card-body text-center py-5">
+                            <i class="bi bi-inbox fs-1 text-muted"></i>
+                            <p class="text-muted mt-3">No hay productos registrados</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- ============================================ -->
+            <!-- TOTALES                                      -->
+            <!-- ============================================ -->
+            <div class="card shadow-sm mb-4" style="background: rgba(26, 26, 26, 0.8); border: 2px solid #ffd700;">
+                <div class="card-header">
+                    <h5 class="mb-0 text-warning">
+                        <i class="bi bi-calculator"></i> Totales
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 offset-md-6">
+                            <table class="table table-borderless mb-0">
+                                <tbody>
+                                    <tr>
+                                        <td class="text-end"><strong>SubTotal (sin IVA):</strong></td>
+                                        <td class="text-end">${{ datos_boleta.cabecera.totales.subtotal_sin_iva }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-end"><strong>IVA (19%):</strong></td>
+                                        <td class="text-end">${{ datos_boleta.cabecera.totales.total_iva }}</td>
+                                    </tr>
+                                    {% if datos_boleta.cabecera.totales.descuento and datos_boleta.cabecera.totales.descuento != "0.00" %}
+                                    <tr>
+                                        <td class="text-end"><strong>Descuento:</strong></td>
+                                        <td class="text-end text-danger">-${{ datos_boleta.cabecera.totales.descuento }}</td>
+                                    </tr>
+                                    {% endif %}
+                                    <tr style="border-top: 2px solid #ffd700;">
+                                        <td class="text-end"><strong class="fs-5">TOTAL (con IVA):</strong></td>
+                                        <td class="text-end"><strong class="fs-5 text-success">${{ datos_boleta.cabecera.totales.total_con_iva }}</strong></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================ -->
+            <!-- INFORMACIÓN DE PAGO                          -->
+            <!-- ============================================ -->
+            {% if datos_boleta.cabecera.pago.monto_pagado %}
+            <div class="card shadow-sm mb-4" style="background: rgba(26, 26, 26, 0.8); border: 2px solid #ffd700;">
+                <div class="card-header">
+                    <h5 class="mb-0 text-warning">
+                        <i class="bi bi-cash-coin"></i> Información de Pago
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong class="text-warning">Medio de Pago:</strong> 
+                                {% if datos_boleta.cabecera.pago.medio_pago == 'efectivo' %}Efectivo
+                                {% elif datos_boleta.cabecera.pago.medio_pago == 'tarjeta_debito' %}Tarjeta Débito
+                                {% elif datos_boleta.cabecera.pago.medio_pago == 'tarjeta_credito' %}Tarjeta Crédito
+                                {% elif datos_boleta.cabecera.pago.medio_pago == 'transferencia' %}Transferencia
+                                {% elif datos_boleta.cabecera.pago.medio_pago == 'cheque' %}Cheque
+                                {% elif datos_boleta.cabecera.pago.medio_pago == 'otro' %}Otro
+                                {% else %}Efectivo{% endif %}
+                            </p>
+                            <p><strong class="text-warning">Pago Recibido:</strong> 
+                                <span class="text-success">${{ datos_boleta.cabecera.pago.monto_pagado }}</span>
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            {% if datos_boleta.cabecera.pago.medio_pago == 'efectivo' and datos_boleta.cabecera.pago.vuelto %}
+                            <p><strong class="text-warning">Vuelto:</strong> 
+                                <span class="{% if datos_boleta.cabecera.pago.vuelto and datos_boleta.cabecera.pago.vuelto|add:0 >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    ${{ datos_boleta.cabecera.pago.vuelto|default:"0" }}
+                                </span>
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- ============================================ -->
+            <!-- INFORMACIÓN DEL CLIENTE                      -->
+            <!-- ============================================ -->
+            {% if datos_boleta.cabecera.cliente %}
+            <div class="card shadow-sm mb-4" style="background: rgba(26, 26, 26, 0.8); border: 2px solid #ffd700;">
+                <div class="card-header">
+                    <h5 class="mb-0 text-warning">
+                        <i class="bi bi-person"></i> Información del Cliente
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p><strong class="text-warning">Nombre:</strong> {{ datos_boleta.cabecera.cliente.nombre }}</p>
+                    {% if datos_boleta.cabecera.cliente.rut %}
+                    <p><strong class="text-warning">RUT:</strong> {{ datos_boleta.cabecera.cliente.rut }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- ============================================ -->
+            <!-- BOTONES DE ACCIÓN                            -->
+            <!-- ============================================ -->
+            <div class="text-center mb-4">
+                <a href="{% url 'historial_boleta_pdf' historial.id %}" class="btn btn-danger btn-lg me-2">
+                    <i class="bi bi-file-pdf"></i> Descargar PDF
+                </a>
+                <a href="{% url 'historial_boletas_list' %}" class="btn btn-secondary btn-lg">
+                    <i class="bi bi-arrow-left"></i> Volver al Historial
+                </a>
+            </div>
+
+        </main>
+    </div>
+</div>
+{% endblock %}
+

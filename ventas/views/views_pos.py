@@ -277,6 +277,8 @@ def validar_producto_ajax(request, producto_id):
 @login_required
 @require_http_methods(["POST"])
 def procesar_venta_ajax(request):
+    # Configurar logger
+    logger = logging.getLogger('ventas')
     """
     API para procesar una venta completa.
     
@@ -310,6 +312,7 @@ def procesar_venta_ajax(request):
         cliente_id = datos.get('cliente_id')
         canal_venta = datos.get('canal_venta', 'presencial')
         carrito = datos.get('carrito', [])  # Array con los productos
+        medio_pago = datos.get('medio_pago', 'efectivo')  # Por defecto efectivo
         monto_pagado = Decimal(str(datos.get('monto_pagado', 0)))
         descuento_global = Decimal(str(datos.get('descuento', 0)))
         
@@ -449,6 +452,17 @@ def procesar_venta_ajax(request):
             # Generar folio único (puedes mejorarlo con un sistema más robusto)
             folio = f"BOL-{timezone.now().strftime('%Y%m%d%H%M%S')}"
             
+            # Calcular vuelto (solo para pagos en efectivo)
+            # Para otros métodos de pago, el vuelto es 0
+            vuelto_calculado = Decimal('0.00')
+            if medio_pago == 'efectivo':
+                vuelto_calculado = vuelto
+            else:
+                # Para otros métodos, el monto pagado debe ser exactamente el total
+                if monto_pagado != total_con_iva:
+                    # Si hay diferencia, ajustar monto_pagado al total
+                    monto_pagado = total_con_iva
+            
             # Crear el registro de Venta
             venta = Ventas.objects.create(
                 clientes=cliente,
@@ -458,8 +472,9 @@ def procesar_venta_ajax(request):
                 descuento=descuento_global,
                 total_con_iva=total_con_iva,
                 folio=folio,
+                medio_pago=medio_pago,
                 monto_pagado=monto_pagado,
-                vuelto=vuelto,
+                vuelto=vuelto_calculado,
             )
             
             # --- Paso 6: Crear los detalles de venta y actualizar stock ---
@@ -482,15 +497,91 @@ def procesar_venta_ajax(request):
                 )
                 
                 # Validar stock disponible antes de actualizar
-                if producto.cantidad < cantidad:
+                stock_disponible = producto.calcular_cantidad_desde_lotes() if hasattr(producto, 'calcular_cantidad_desde_lotes') else producto.cantidad
+                if stock_disponible < cantidad:
                     raise ValueError(
                         f'Stock insuficiente para {producto.nombre}. '
-                        f'Disponible: {producto.cantidad}, Solicitado: {cantidad}'
-                )
+                        f'Disponible: {stock_disponible}, Solicitado: {cantidad}'
+                    )
                 
-                # Actualizar el stock del producto (restar la cantidad vendida)
-                producto.cantidad = producto.cantidad - cantidad
-                producto.save(update_fields=['cantidad'])
+                # Reducir cantidad de lotes usando FIFO (First In First Out)
+                # Vender primero los lotes más antiguos (los que vencen primero)
+                from ventas.models import Lote
+                cantidad_restante = Decimal(str(cantidad))  # Asegurar que sea Decimal
+                
+                # Obtener lotes activos ordenados por fecha de caducidad (más antiguos primero)
+                lotes_activos = Lote.objects.filter(
+                    productos=producto,
+                    estado='activo',
+                    cantidad__gt=0
+                ).order_by('fecha_caducidad', 'fecha_recepcion')
+                
+                for lote in lotes_activos:
+                    if cantidad_restante <= Decimal('0'):
+                        break
+                    
+                    # Asegurar que lote.cantidad sea Decimal
+                    cantidad_lote = Decimal(str(lote.cantidad))
+                    
+                    # Calcular cuánto tomar de este lote
+                    cantidad_a_tomar = min(cantidad_restante, cantidad_lote)
+                    
+                    logger.info(f'[VENTA FIFO] Lote {lote.id}: cantidad antes={cantidad_lote}, tomando={cantidad_a_tomar}')
+                    
+                    # Reducir la cantidad del lote
+                    nueva_cantidad_lote = cantidad_lote - cantidad_a_tomar
+                    lote.cantidad = nueva_cantidad_lote
+                    
+                    # Si el lote se agotó, marcarlo como agotado
+                    if nueva_cantidad_lote <= Decimal('0'):
+                        lote.estado = 'agotado'
+                        lote.cantidad = Decimal('0')
+                        logger.info(f'[VENTA FIFO] Lote {lote.id} agotado')
+                    
+                    lote.save(update_fields=['cantidad', 'estado'])
+                    logger.info(f'[VENTA FIFO] Lote {lote.id}: cantidad después={lote.cantidad}, estado={lote.estado}')
+                    cantidad_restante = cantidad_restante - cantidad_a_tomar
+                
+                # Si aún queda cantidad por vender (no debería pasar si la validación fue correcta)
+                if cantidad_restante > Decimal('0'):
+                    raise ValueError(
+                        f'Error: No se pudo reducir completamente el stock. '
+                        f'Quedan {cantidad_restante} unidades sin asignar a lotes.'
+                    )
+                
+                # Refrescar el producto desde la BD para obtener datos actualizados
+                producto.refresh_from_db()
+                
+                # Actualizar la cantidad total del producto desde lotes
+                # Siempre recalcular desde lotes si el producto tiene lotes
+                if hasattr(producto, 'calcular_cantidad_desde_lotes'):
+                    nueva_cantidad_producto = producto.calcular_cantidad_desde_lotes()
+                    logger.info(f'[VENTA] Recalculando cantidad desde lotes: {nueva_cantidad_producto}')
+                else:
+                    nueva_cantidad_producto = producto.cantidad - cantidad
+                    logger.info(f'[VENTA] Reduciendo cantidad directamente: {nueva_cantidad_producto}')
+                
+                producto.cantidad = nueva_cantidad_producto
+                logger.info(f'[VENTA] Cantidad del producto actualizada a: {producto.cantidad}')
+                
+                # Actualizar fecha de caducidad del producto con la del lote más antiguo activo
+                lote_mas_antiguo = Lote.objects.filter(
+                    productos=producto,
+                    estado='activo',
+                    cantidad__gt=0
+                ).order_by('fecha_caducidad', 'fecha_recepcion').first()
+                
+                if lote_mas_antiguo and lote_mas_antiguo.fecha_caducidad:
+                    producto.caducidad = lote_mas_antiguo.fecha_caducidad
+                elif not lote_mas_antiguo:
+                    # Si no hay lotes activos, limpiar fecha de caducidad
+                    producto.caducidad = None
+                
+                # Guardar cambios en el producto
+                producto.save(update_fields=['cantidad', 'caducidad'])
+                
+                # Log para debugging
+                logger.info(f'[VENTA] Producto {producto.nombre}: cantidad actualizada a {producto.cantidad} después de vender {cantidad} unidades')
                 
                 # Crear movimiento de inventario para trazabilidad
                 try:
@@ -505,9 +596,16 @@ def procesar_venta_ajax(request):
                     )
                 except Exception as e:
                     # Si falla la creación del movimiento, registrar pero no fallar la venta
-                    import logging
-                    logger = logging.getLogger('ventas')
                     logger.warning(f'Error al crear movimiento de inventario: {e}')
+            
+            # --- Paso 6.5: Guardar historial de boleta (sin afectar la transacción principal) ---
+            try:
+                from ventas.funciones.historial_boletas import guardar_historial_boleta
+                usuario_emisor = request.user.username if request.user.is_authenticated else None
+                guardar_historial_boleta(venta, usuario_emisor=usuario_emisor)
+            except Exception as e:
+                # Si falla el guardado del historial, registrar pero no fallar la venta
+                logger.warning(f'Error al guardar historial de boleta: {e}')
         
         # --- Paso 7: Retornar respuesta exitosa ---
         return JsonResponse({
@@ -530,8 +628,6 @@ def procesar_venta_ajax(request):
         
     except Exception as e:
         # Si hay cualquier error, la transacción se revierte automáticamente
-        import logging
-        logger = logging.getLogger('ventas')
         logger.error(f'Error al procesar venta: {e}', exc_info=True)
         
         # En producción, no exponer detalles del error al usuario

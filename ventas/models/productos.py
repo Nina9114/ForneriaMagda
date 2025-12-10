@@ -313,6 +313,7 @@ class Productos(models.Model):
         try:
             from .lotes import Lote
             from decimal import Decimal
+            from django.db.models import Sum
             cantidad_lotes = Lote.objects.filter(
                 productos=self,
                 estado='activo'  # Solo lotes activos (excluye inactivos, agotados, vencidos, en_merma)

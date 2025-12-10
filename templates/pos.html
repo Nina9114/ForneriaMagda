@@ -372,17 +372,33 @@ FUNCIONALIDAD:
                         </div>
                     </div>
 
-                    <!-- Input de monto pagado -->
+                    <!-- Selector de medio de pago -->
                     <div class="mb-3">
+                        <label for="medio-pago-select" class="form-label">
+                            <strong>Medio de Pago:</strong>
+                        </label>
+                        <select class="form-select form-select-lg" id="medio-pago-select" required>
+                            <option value="efectivo">Efectivo</option>
+                            <option value="tarjeta_debito">Tarjeta Débito</option>
+                            <option value="tarjeta_credito">Tarjeta Crédito</option>
+                            <option value="transferencia">Transferencia</option>
+                            <option value="cheque">Cheque</option>
+                            <option value="otro">Otro</option>
+                        </select>
+                    </div>
+
+                    <!-- Input de monto pagado (solo visible para efectivo) -->
+                    <div class="mb-3" id="monto-pagado-container">
                         <label for="monto-pagado-input" class="form-label">
                             <strong>Monto Pagado por el Cliente:</strong>
                         </label>
                         <input type="number" class="form-control form-control-lg" id="monto-pagado-input" min="0"
                             step="1" placeholder="Ingrese el monto" required>
+                        <small class="form-text text-muted">Solo aplica para pagos en efectivo</small>
                     </div>
 
-                    <!-- Vuelto calculado -->
-                    <div class="alert alert-success">
+                    <!-- Vuelto calculado (solo visible para efectivo) -->
+                    <div class="alert alert-success" id="vuelto-container">
                         <div class="d-flex justify-content-between align-items-center">
                             <strong>VUELTO:</strong>
                             <span class="fs-4">$<span id="modal-vuelto">0</span></span>
@@ -410,5 +426,5 @@ FUNCIONALIDAD:
 
     <!-- ==================== SCRIPTS PERSONALIZADOS ==================== -->
     {% block extra_js %}
-    <script src="{% static 'js/pos.js' %}"></script>
+    <script src="{% static 'js/pos.js' %}?v=4"></script>
     {% endblock %}

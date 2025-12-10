@@ -215,15 +215,26 @@
                                             <strong>{{ alerta.mensaje }}</strong>
                                         </td>
                                         <td>
-                                            {{ alerta.productos.nombre }}
-                                            {% if alerta.productos.marca %}
-                                                <br><small class="text-muted">{{ alerta.productos.marca }}</small>
+                                            {% if alerta.productos %}
+                                                {{ alerta.productos.nombre }}
+                                                {% if alerta.productos.marca %}
+                                                    <br><small class="text-muted">{{ alerta.productos.marca }}</small>
+                                                {% endif %}
+                                            {% elif alerta.factura_proveedor %}
+                                                <i class="bi bi-receipt"></i> Factura {{ alerta.factura_proveedor.numero_factura }}
+                                                <br><small class="text-muted">{{ alerta.factura_proveedor.proveedor.nombre }}</small>
+                                            {% else %}
+                                                <span class="text-muted">—</span>
                                             {% endif %}
                                         </td>
                                         <td class="text-center">
-                                            <span class="badge bg-{{ alerta.get_color_badge }}">
-                                                {{ alerta.get_dias_hasta_vencer }} días
-                                            </span>
+                                            {% if alerta.get_dias_hasta_vencer is not None %}
+                                                <span class="badge bg-{{ alerta.get_color_badge }}">
+                                                    {{ alerta.get_dias_hasta_vencer_display }}
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">—</span>
+                                            {% endif %}
                                         </td>
                                         <td>
                                             <small>

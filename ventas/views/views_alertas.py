@@ -57,9 +57,13 @@ def alertas_list_view(request):
     
     # --- Paso 1: Obtener todas las alertas ---
     # Empezamos con todas las alertas, luego aplicaremos filtros
-    # Excluir alertas de productos en merma o inactivos (ya no son relevantes)
-    alertas = Alertas.objects.select_related('productos').filter(
-        productos__estado_merma='activo'  # Solo alertas de productos activos (excluye inactivos y en_merma)
+    # Incluir:
+    # - Alertas de productos activos (no en merma)
+    # - Alertas de facturas (donde productos=None y factura_proveedor no es None)
+    from django.db.models import Q
+    alertas = Alertas.objects.select_related('productos', 'factura_proveedor').filter(
+        Q(productos__estado_merma='activo') |  # Alertas de productos activos
+        Q(productos__isnull=True, factura_proveedor__isnull=False)  # Alertas de facturas
     )
     
     # --- Paso 2: Aplicar filtros si existen ---
@@ -78,11 +82,13 @@ def alertas_list_view(request):
     if estado_filtro:
         alertas = alertas.filter(estado=estado_filtro)
     
-    # Filtrar por nombre de producto (búsqueda parcial)
+    # Filtrar por nombre de producto o factura (búsqueda parcial)
     if producto_filtro:
         alertas = alertas.filter(
             Q(productos__nombre__icontains=producto_filtro) |
             Q(productos__marca__icontains=producto_filtro) |
+            Q(factura_proveedor__numero_factura__icontains=producto_filtro) |
+            Q(factura_proveedor__proveedor__nombre__icontains=producto_filtro) |
             Q(mensaje__icontains=producto_filtro)
         )
     
