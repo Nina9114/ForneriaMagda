@@ -401,6 +401,40 @@
     color: #1a1a1a;
 }
 
+/* Nombre del producto en el carrito - forzar color negro */
+.carrito-item-body strong,
+.carrito-item-card strong,
+.carrito-item-body .text-black,
+.carrito-item-card .text-black,
+.carrito-item-body strong.text-black,
+.carrito-item-card strong.text-black,
+.pos-sidebar .carrito-item-body strong,
+.pos-sidebar .carrito-item-card strong,
+.dark-gold-theme .carrito-item-body strong,
+.dark-gold-theme .carrito-item-card strong {
+    color: #000000 !important;
+}
+
+/* Asegurar que todos los textos dentro del carrito sean negros (sobrescribir tema oscuro) */
+.pos-sidebar .carrito-items,
+.pos-sidebar .carrito-items *,
+.carrito-item-body,
+.carrito-item-body *,
+.dark-gold-theme .carrito-item-body,
+.dark-gold-theme .carrito-item-body * {
+    color: #1a1a1a !important;
+}
+
+/* Excepción: mantener algunos elementos con sus colores específicos */
+.carrito-item-body .text-warning,
+.carrito-item-body .text-muted,
+.carrito-item-body .badge,
+.carrito-item-body .btn,
+.carrito-item-body .text-gold,
+.carrito-item-body .text-gold-light {
+    color: inherit !important;
+}
+
 /* Botones de control de cantidad */
 .btn-outline-warning {
     border-color: #d4af37;

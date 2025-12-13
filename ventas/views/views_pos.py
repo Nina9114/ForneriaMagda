@@ -110,11 +110,11 @@ def agregar_cliente_ajax(request):
     """
     API para agregar un cliente nuevo desde el POS usando AJAX.
     
-    Recibe datos JSON del cliente y los guarda en la base de datos.
+    Recibe datos del cliente (FormData o JSON) y los guarda en la base de datos.
     Retorna el ID del cliente creado para poder seleccionarlo automáticamente.
     
     Args:
-        request: Petición HTTP con los datos del cliente en formato JSON
+        request: Petición HTTP con los datos del cliente en formato FormData o JSON
         
     Returns:
         JsonResponse con el resultado (éxito o error)
@@ -122,8 +122,22 @@ def agregar_cliente_ajax(request):
     
     try:
         # --- Paso 1: Obtener los datos enviados desde JavaScript ---
-        # JavaScript nos envía los datos en formato JSON
-        datos = json.loads(request.body)  # Convertimos JSON a diccionario Python
+        # El JavaScript puede enviar FormData o JSON, verificamos el Content-Type
+        content_type = request.content_type
+        
+        if 'application/json' in content_type:
+            # Si es JSON, leer del body
+            datos = json.loads(request.body)
+        else:
+            # Si es FormData (application/x-www-form-urlencoded o multipart/form-data)
+            # Django ya parseó los datos en request.POST
+            datos = {
+                'nombre': request.POST.get('nombre', '').strip(),
+                'rut': request.POST.get('rut', '').strip() or None,
+                'correo': request.POST.get('email', '').strip() or None,
+            }
+            # Nota: El modelo Clientes solo tiene nombre, rut y correo
+            # Los campos telefono y direccion del formulario HTML no se guardan
         
         # --- Paso 2: Crear el formulario con los datos recibidos ---
         form = ClienteRapidoForm(datos)
@@ -137,6 +151,8 @@ def agregar_cliente_ajax(request):
             return JsonResponse({
                 'success': True,                    # Indica que todo salió bien
                 'mensaje': 'Cliente agregado correctamente',
+                'cliente_id': cliente.id,           # ID del cliente creado (para compatibilidad con JS)
+                'cliente_nombre': cliente.nombre,   # Nombre del cliente (para compatibilidad con JS)
                 'cliente': {
                     'id': cliente.id,               # ID del cliente creado
                     'nombre': cliente.nombre,       # Nombre del cliente

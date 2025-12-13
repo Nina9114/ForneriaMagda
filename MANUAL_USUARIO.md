@@ -167,6 +167,12 @@ Nota: Los roles disponibles pueden variar según la configuración del sistema. 
 
 Gestión de Productos
 
+La página de Inventario permite gestionar todos los productos del sistema. En la parte superior encontrará botones para:
+
+- Agregar Producto: Crear un nuevo producto
+- Mostrar/Ocultar Inactivos: Alternar la visualización de productos inactivos
+- Ajustes de Stock: Acceder a la página de ajustes manuales de stock
+
 Agregar un Nuevo Producto
 
 1. En el menú lateral, haga clic en "Inventario"
@@ -194,6 +200,27 @@ Editar un Producto
 
 [CAPTURA DE PANTALLA: Formulario de editar producto]
 
+Activar o Desactivar un Producto
+
+Los productos pueden estar en estado "Activo" o "Inactivo". Un producto inactivo no está disponible para venta.
+
+Para activar o desactivar un producto:
+
+1. En la lista de productos, localice el producto deseado
+2. En la columna "Acciones", encontrará:
+   - Si el producto está Activo: verá un botón "Desactivar" (icono de pausa)
+   - Si el producto está Inactivo: verá un botón "Activar" (icono de play)
+3. Haga clic en el botón correspondiente
+4. Confirme la acción en el mensaje que aparece
+5. El producto cambiará de estado automáticamente
+
+Nota: 
+- Un producto inactivo no aparecerá en el punto de venta (POS)
+- Los productos inactivos se pueden ver activando el filtro "Mostrar Inactivos"
+- Desactivar un producto no elimina su información, solo lo oculta de las ventas
+
+[CAPTURA DE PANTALLA: Botones de activar/desactivar producto]
+
 Ver Detalle de un Producto
 
 1. En la lista de productos, haga clic en elnombre del productoo en el botón "Ver Detalle"
@@ -206,15 +233,66 @@ Ver Detalle de un Producto
 
 [CAPTURA DE PANTALLA: Detalle de producto]
 
-Filtrar Productos
+Filtrar y Buscar Productos
 
-En la lista de productos, puede usar los siguientes filtros:
--Bajo Stock:Muestra solo productos con stock bajo
--Próximos a Vencer:Muestra productos que vencen pronto
--Activos/Inactivos:Filtra por estado del producto
--Por Categoría:Filtra por categoría específica
+En la lista de productos, puede usar las siguientes opciones:
 
-[CAPTURA DE PANTALLA: Filtros de productos]
+Búsqueda por Texto:
+- Utilice el campo de búsqueda para buscar productos por:
+  - Nombre del producto
+  - Marca
+  - Tipo
+  - Formato
+  - Categoría (puede buscar por nombre de categoría)
+
+Mostrar/Ocultar Productos Inactivos:
+- Haga clic en el botón "Mostrar Inactivos" para ver también los productos que están inactivos
+- Por defecto, solo se muestran los productos activos y los productos en merma
+
+Nota: Los productos con stock bajo se muestran automáticamente en el Dashboard en la sección "Productos con Stock Bajo", pero no hay un filtro específico en la página de inventario para filtrar solo por stock bajo.
+
+[CAPTURA DE PANTALLA: Búsqueda y filtros de productos]
+
+Acciones Masivas en Inventario
+
+En la página de inventario, puede realizar acciones sobre múltiples productos seleccionados usando los checkboxes de cada fila.
+
+Para usar las acciones masivas:
+
+1. Seleccione uno o más productos marcando los checkboxes en la primera columna de la tabla
+2. También puede usar el checkbox del encabezado para seleccionar/deseleccionar todos los productos visibles
+3. Una vez seleccionados, se habilitarán los botones de acción masiva en la parte superior de la tabla
+
+Acciones disponibles:
+
+Crear Alertas:
+- Seleccione los productos para los que desea crear alertas de vencimiento
+- Haga clic en el botón "Crear Alertas" (icono de campana)
+- Se generarán alertas automáticas para los productos seleccionados
+
+Mover a Merma:
+- Seleccione los productos que desea enviar a merma
+- Haga clic en el botón "Mover a Merma" (icono de triángulo de advertencia)
+- Se abrirá un modal para seleccionar los lotes específicos y cantidades a enviar a merma
+- Ingrese el motivo de la merma y confirme
+
+Eliminar:
+- Seleccione los productos que desea eliminar
+- Haga clic en el botón "Eliminar" (icono de papelera)
+- Confirme la eliminación
+- Nota: La eliminación es lógica (el producto se marca como eliminado pero no se borra de la base de datos)
+
+[CAPTURA DE PANTALLA: Acciones masivas en inventario]
+
+Ajustes de Stock desde Inventario
+
+1. En la página de Inventario, haga clic en el botón "Ajustes de Stock" (icono de controles deslizantes) en la parte superior
+2. Será redirigido a la página de Ajustes de Stock donde puede:
+   - Agregar stock (entrada)
+   - Reducir stock (salida)
+   - Ver el historial de ajustes
+
+Para más detalles sobre cómo realizar ajustes de stock, consulte la sección "Gestión de Inventario" → "Ajustar Stock".
 
 ---
 
@@ -222,36 +300,67 @@ Punto de Venta (POS)
 
 Realizar una Venta
 
-#Paso 1: Agregar Productos al Carrito
+Paso 1: Seleccionar Cliente (Opcional)
 1. En el menú lateral, haga clic en "Punto de Venta"
-2. Busque el producto en la lista o use el buscador
-3. Haga clic en el botón "Agregar" del producto
-4. Ingrese la cantidad deseada
-5. El producto se agregará al carrito automáticamente
+2. En la sección "Cliente", encontrará un selector desplegable con la lista de clientes registrados
+3. Puede realizar una de las siguientes acciones:
+   
+   Opción A: Venta sin Cliente (Cliente Genérico)
+   - Deje el selector en "-- Seleccionar cliente --"
+   - La venta se registrará sin asociar un cliente específico
+   - Esta opción es útil para ventas rápidas o cuando no se necesita registrar el cliente
+   
+   Opción B: Seleccionar Cliente Existente
+   - Seleccione un cliente de la lista desplegable
+   - El cliente quedará asociado a la venta
+   
+   Opción C: Crear Cliente Nuevo
+   - Haga clic en el botón "Nuevo Cliente" (icono de persona con signo +)
+   - Se abrirá un modal para registrar el cliente rápidamente
+   - Complete el formulario:
+     * Nombre: Nombre del cliente (obligatorio)
+     * RUT: RUT del cliente (opcional, formato: 12345678-9)
+     * Teléfono: Número de teléfono (opcional)
+     * Email: Correo electrónico (opcional)
+     * Dirección: Dirección del cliente (opcional)
+   - Haga clic en "Guardar Cliente"
+   - El nuevo cliente se agregará automáticamente al selector y quedará seleccionado
+   - El modal se cerrará automáticamente
+
+Nota: Si no selecciona un cliente, la venta se registrará como "Cliente Genérico" y no se asociará a ningún cliente específico.
+
+[CAPTURA DE PANTALLA: Selector de cliente y modal de nuevo cliente]
+
+Paso 2: Agregar Productos al Carrito
+1. Busque el producto en la lista o use el buscador
+2. Haga clic en el botón "Agregar" del producto
+3. Ingrese la cantidad deseada
+4. El producto se agregará al carrito automáticamente
 
 [CAPTURA DE PANTALLA: POS con productos en carrito]
 
-#Paso 2: Aplicar Descuentos (Opcional)
-1. En el carrito, puede aplicar descuentos:
-   -Descuento por línea:Haga clic en el producto y agregue un porcentaje
-   -Descuento global:Ingrese un monto fijo en el campo "Descuento Global"
+Paso 3: Aplicar Descuentos (Opcional)
+1. En el carrito, puede aplicar descuentos individuales por producto:
+   - Haga clic en el botón "Descuento" del producto en el carrito
+   - Ingrese el porcentaje de descuento deseado
+   - El descuento se aplicará solo a ese producto específico
 
 [CAPTURA DE PANTALLA: Aplicar descuentos]
 
-#Paso 3: Seleccionar Método de Pago
+Paso 4: Seleccionar Método de Pago
 1. En la sección de pago, seleccione el método:
-   -Efectivo**
-   -Tarjeta Débito**
-   -Tarjeta Crédito**
-   -Transferencia**
-   -Cheque**
+   - Efectivo
+   - Tarjeta Débito
+   - Tarjeta Crédito
+   - Transferencia
+   - Cheque
 
 2. Si es efectivo, ingrese el monto pagado por el cliente
 3. El sistema calculará automáticamente el vuelto
 
 [CAPTURA DE PANTALLA: Selección de método de pago]
 
-#Paso 4: Confirmar Venta
+Paso 5: Confirmar Venta
 1. Revise el resumen de la venta:
    - Subtotal Neto
    - IVA (19%)
@@ -378,7 +487,6 @@ Información Importante
 -Actualización Automática de Stock:Al registrar un lote de producción, el stock del producto se actualiza automáticamente
 -Sistema FIFO:El sistema utiliza FIFO (First In First Out) para las ventas, vendiendo primero los lotes más antiguos
 -Movimientos de Inventario:Cada lote registrado genera automáticamente un movimiento de inventario de tipo "entrada"
--Reactivación de Productos:Si un producto estaba en merma y se registra un nuevo lote, el producto se reactiva automáticamente
 
 ---
 
@@ -388,47 +496,89 @@ Agregar un Proveedor
 
 1. En el menú lateral, haga clic en "Proveedores"
 2. Haga clic en "Nuevo Proveedor"
-3. Complete el formulario:
-   - Nombre: Nombre del proveedor
-   - RUT: RUT del proveedor
-   - Contacto: Nombre de contacto
-   - Teléfono: Número de teléfono
-   - Email: Correo electrónico
-   - Dirección: Dirección del proveedor
+3. Complete el formulario con la siguiente información:
+
+Campos Obligatorios:
+   - Nombre: Razón social o nombre del proveedor (obligatorio)
+
+Campos Opcionales:
+   - RUT: RUT del proveedor (formato: 12345678-9)
+   - Persona de Contacto: Nombre de la persona con quien contactar (ej: Juan Pérez)
+   - Teléfono: Número telefónico de contacto (ej: +56 9 1234 5678)
+   - Email: Correo electrónico del proveedor
+   - Dirección: Dirección física del proveedor
+   - Ciudad: Ciudad donde se encuentra el proveedor
+   - Región: Región donde se encuentra el proveedor
+   - Estado: Estado del proveedor (Activo o Inactivo). Por defecto se establece como "Activo"
+   - Notas: Notas adicionales sobre el proveedor (información adicional que desee registrar)
 
 4. Haga clic en "Guardar"
+
+Nota: Solo el campo "Nombre" es obligatorio. Todos los demás campos son opcionales y pueden completarse según la información disponible del proveedor.
 
 [CAPTURA DE PANTALLA: Formulario de proveedor]
 
 Registrar Factura de Compra
 
-1. En la lista de proveedores, haga clic en "Ver Facturas" del proveedor
-2. Haga clic en "Nueva Factura"
-3. Complete los datos de la factura:
-   - Número de Factura
-   - Fecha de Factura
-   - Fecha de Vencimiento
-   - Subtotal sin IVA
-   - Descuento (si aplica)
-   - Total IVA
-   - Total con IVA
-   - Estado de Pago
+1. En el menú lateral, haga clic en "Facturas Proveedores"
+2. En la página de facturas, haga clic en el botón "Nueva Factura"
+3. Complete el formulario con la siguiente información:
 
-4. Agregue los productos de la factura:
-   - Seleccione el producto
-   - Ingrese cantidad
-   - Ingrese precio unitario
-   - Se calculará automáticamente el subtotal
+Campos Obligatorios:
+   - Proveedor: Seleccione el proveedor que emitió la factura (obligatorio)
+   - Número de Factura: Número de la factura del proveedor (obligatorio)
+   - Fecha de Factura: Fecha en que el proveedor emitió la factura (obligatorio)
 
-5. Haga clic en "Guardar"
+Campos Opcionales:
+   - Fecha de Vencimiento: Fecha límite para pagar la factura (recomendado para control de pagos)
+   - Estado de Pago: Estado del pago (Pendiente, Pago Parcial, Pagado, Atrasado, Cancelado/Anulado). Por defecto: Pendiente
+   - Fecha de Recepción: Fecha en que se recibió la factura. Dejar vacío si aún no se ha recibido
+   - Subtotal sin IVA (Neto): Monto sin IVA (el sistema calculará automáticamente el IVA y total)
+   - Descuento (en pesos): Monto fijo en pesos a descontar (ej: 1000)
+   - Observaciones: Notas adicionales sobre la factura
 
-[CAPTURA DE PANTALLA: Formulario de factura]
+Nota: El sistema calcula automáticamente el IVA (19%) y el Total con IVA basándose en el Subtotal sin IVA y el Descuento ingresados.
+
+4. Haga clic en "Guardar"
+5. Será redirigido automáticamente al detalle de la factura creada
+
+[CAPTURA DE PANTALLA: Formulario de nueva factura]
+
+Agregar Productos a la Factura
+
+Importante: Antes de agregar productos a una factura, los productos deben estar creados en el sistema. Si necesita crear un producto nuevo, debe hacerlo primero desde el módulo de Inventario (botón "Agregar Producto") antes de poder agregarlo a la factura.
+
+Una vez creada la factura, puede agregar los productos que contiene:
+
+1. En el detalle de la factura, encontrará la sección "Agregar Producto" (solo visible si la factura no ha sido recibida)
+2. Complete el formulario para cada producto:
+   - Producto: Seleccione el producto de la lista (obligatorio)
+   - Cantidad: Ingrese la cantidad comprada (obligatorio)
+   - Precio Unitario: Ingrese el precio unitario del producto (obligatorio)
+   - Descuento %: Porcentaje de descuento aplicado al producto (opcional, por defecto 0%)
+   - Fecha Vencimiento: Fecha de vencimiento del producto (opcional, si no se especifica se usará la fecha del producto o fecha factura + 30 días)
+   - Número de Lote: Código del lote del proveedor (opcional, si no se especifica se generará automáticamente)
+3. Haga clic en "Agregar"
+4. El producto se agregará a la lista de productos de la factura
+5. Repita el proceso para cada producto de la factura
+
+Nota: Solo puede agregar productos a facturas que aún no han sido recibidas. Una vez recibida la factura, no se pueden agregar más productos.
+
+[CAPTURA DE PANTALLA: Agregar producto a factura]
 
 Recibir Factura
 
-1. En la lista de facturas, haga clic en "Recibir" de la factura pendiente
-2. Ingrese la fecha de recepción
-3. El sistema actualizará automáticamente el stock de los productos
+Cuando reciba físicamente la factura y los productos:
+
+1. En el detalle de la factura, haga clic en el botón "Recibir Factura"
+2. Ingrese la fecha de recepción (por defecto se usará la fecha actual)
+3. Haga clic en "Confirmar Recepción"
+4. El sistema actualizará automáticamente:
+   - El stock de todos los productos agregados a la factura
+   - Se crearán los lotes correspondientes para cada producto
+   - La factura quedará marcada como "Recibida"
+
+Nota: Una vez recibida la factura, no se pueden agregar más productos. Si necesita agregar productos adicionales, debe quitar la recepción primero.
 
 [CAPTURA DE PANTALLA: Recepción de factura]
 
@@ -436,148 +586,360 @@ Recibir Factura
 
 Reportes
 
+El sistema de reportes permite generar análisis detallados de ventas, productos e inventario. Todos los reportes pueden exportarse a Excel, PDF o CSV para análisis adicionales o archivo.
+
+Acceder al Sistema de Reportes
+
+1. En el menú lateral, haga clic en "Reportes"
+2. Se mostrará el portal de reportes con las siguientes opciones disponibles:
+   - Reporte de Ventas
+   - Top Productos
+   - Reporte de Inventario
+
+[CAPTURA DE PANTALLA: Portal de reportes]
+
 Reporte de Ventas
 
-1. En el menú lateral, haga clic en "Reportes" → "Ventas"
-2. Seleccione el rango de fechas
-3. Opcionalmente, seleccione filtros adicionales:
-   - Canal de venta
-   - Cliente
-   - Método de pago
+Este reporte permite analizar las ventas realizadas con filtros avanzados y ver totales agregados.
 
-4. Haga clic en "Generar Reporte"
-5. Para exportar, haga clic en:
-   - "Exportar CSV"
-   - "Exportar Excel"
-   - "Exportar PDF"
+1. En el portal de reportes, haga clic en "Ver Reporte" en la tarjeta de "Reporte de Ventas"
+2. Complete los filtros de búsqueda:
+   - Fecha Desde: Fecha inicial del rango (opcional)
+   - Fecha Hasta: Fecha final del rango (opcional)
+   - Cliente: Seleccione un cliente específico o "Todos los clientes" (opcional)
+   - Canal: Seleccione el canal de venta (Presencial, Delivery) o "Todos" (opcional)
+
+3. Haga clic en "Generar Reporte"
+4. El reporte mostrará:
+   - Lista de ventas que cumplen con los filtros seleccionados
+   - Información de cada venta: fecha, cliente, canal, totales
+   - Totales agregados: Total Neto, Total IVA, Total con IVA, Cantidad de Ventas, Promedio por Venta
+
+5. Para exportar el reporte, haga clic en uno de los botones de exportación:
+   - "Exportar Excel": Descarga el reporte en formato Excel (XLSX)
+   - "Exportar PDF": Descarga el reporte en formato PDF para impresión
+   - "Exportar CSV": Descarga el reporte en formato CSV para importación a otros sistemas
+
+Nota: Si no selecciona fechas, el reporte mostrará todas las ventas. Se recomienda siempre especificar un rango de fechas para obtener resultados más precisos.
 
 [CAPTURA DE PANTALLA: Reporte de ventas]
 
 Reporte Top Productos
 
-1. En el menú lateral, haga clic en "Reportes" → "Top Productos"
-2. Seleccione el tipo de ranking:
-   -Por Cantidad:Productos más vendidos por cantidad
-   -Por Monto Neto:Productos con mayor facturación
+Este reporte muestra un ranking de los productos más vendidos, ya sea por cantidad de unidades vendidas o por monto neto facturado.
 
-3. Seleccione el rango de fechas
+1. En el portal de reportes, haga clic en "Ver Reporte" en la tarjeta de "Top Productos"
+2. Seleccione el tipo de ranking:
+   - Por Cantidad: Muestra los productos más vendidos por número de unidades
+   - Por Monto Neto: Muestra los productos con mayor facturación (monto neto)
+
+3. Complete los filtros de búsqueda:
+   - Fecha Desde: Fecha inicial del rango (opcional)
+   - Fecha Hasta: Fecha final del rango (opcional)
+
 4. Haga clic en "Generar Reporte"
-5. Puede exportar el reporte en los formatos disponibles
+5. El reporte mostrará:
+   - Ranking de productos ordenados según el tipo seleccionado
+   - Para cada producto: nombre, cantidad vendida, monto neto total, precio unitario promedio
+
+6. Para exportar el reporte, haga clic en uno de los botones de exportación:
+   - "Exportar Excel": Descarga el ranking en formato Excel (XLSX)
+   - "Exportar PDF": Descarga el ranking en formato PDF
+   - "Exportar CSV": Descarga el ranking en formato CSV
+
+Nota: Si no selecciona fechas, el reporte usará el último mes por defecto.
 
 [CAPTURA DE PANTALLA: Reporte top productos]
 
 Reporte de Inventario
 
-1. En el menú lateral, haga clic en "Reportes" → "Inventario"
-2. Seleccione filtros:
-   - Categoría
-   - Estado (Activo/Inactivo)
-   - Stock bajo
+Este reporte permite valorizar el inventario y ver el stock actual de los productos, agrupados por categoría.
+
+1. En el portal de reportes, haga clic en "Ver Reporte" en la tarjeta de "Reporte de Inventario"
+2. Complete los filtros de búsqueda:
+   - Categoría: Seleccione una categoría específica o "Todas las categorías" (opcional)
 
 3. Haga clic en "Generar Reporte"
 4. El reporte mostrará:
-   - Lista de productos
-   - Stock actual
-   - Valorización por categoría
+   - Lista de productos con su información: nombre, categoría, stock actual, precio unitario
+   - Valorización de cada producto (precio × stock)
+   - Resumen por categoría con totales de valorización
+   - Valor total del inventario
+
+5. Para exportar el reporte, haga clic en uno de los botones de exportación:
+   - "Exportar Excel": Descarga el reporte en formato Excel (XLSX)
+   - "Exportar PDF": Descarga el reporte en formato PDF para impresión
+   - "Exportar CSV": Descarga el reporte en formato CSV
+
+Nota: El reporte solo incluye productos activos. Los productos inactivos o en merma no aparecen en el reporte.
 
 [CAPTURA DE PANTALLA: Reporte de inventario]
+
+Exportación de Reportes
+
+Todos los reportes pueden exportarse en tres formatos:
+
+- Excel (XLSX): Ideal para análisis en hojas de cálculo como Microsoft Excel o Google Sheets. Permite realizar cálculos adicionales y crear gráficos.
+- PDF: Ideal para impresión y archivo. Mantiene el formato visual del reporte y es fácil de compartir.
+- CSV: Ideal para importación a otros sistemas o bases de datos. Formato de texto plano separado por comas.
+
+Los archivos exportados se descargarán automáticamente en su navegador. Asegúrese de tener permisos de descarga habilitados.
 
 ---
 
 Sistema de Alertas
 
-Ver Alertas
+El sistema de alertas permite monitorear productos que están próximos a vencer, tienen stock bajo, o facturas de proveedores que requieren atención. Las alertas se clasifican por colores según su urgencia.
 
-1. En el Dashboard, verá la sección "Alertas Pendientes"
-2. Haga clic en "Ver Todas las Alertas" para ver el detalle completo
-3. Las alertas se clasifican en:
-   -Stock Bajo:Productos con stock por debajo del mínimo
-   -Vencimiento Próximo:Productos que vencen en los próximos 7 días
-   -Facturas por Vencer:Facturas de proveedores próximas a vencer
+Acceder al Sistema de Alertas
 
-[CAPTURA DE PANTALLA: Lista de alertas]
+1. En el menú lateral, haga clic en "Alertas"
+2. Se mostrará la página de alertas con:
+   - Tarjetas de estadísticas: Alertas Rojas, Amarillas, Verdes y Alertas Activas
+   - Lista completa de alertas con filtros
+   - Opciones para crear alertas manualmente o generar alertas automáticas
 
-Resolver Alertas
+[CAPTURA DE PANTALLA: Portal de alertas]
 
-1. En la lista de alertas, haga clic en "Resolver" de la alerta correspondiente
-2. Realice la acción necesaria (reponer stock, atender factura, etc.)
-3. La alerta se marcará como resuelta automáticamente
+Tipos de Alertas
 
-[CAPTURA DE PANTALLA: Resolver alerta]
+Las alertas se clasifican por colores según su urgencia:
+
+- Alertas Rojas (Urgente): 0-13 días hasta vencer. Requieren atención inmediata
+- Alertas Amarillas (Precaución): 14-29 días hasta vencer. Requieren atención pronto
+- Alertas Verdes (OK): 30 o más días hasta vencer. Informativo, no urgente
+
+Estados de Alertas
+
+Cada alerta puede tener uno de los siguientes estados:
+
+- Activa: Alerta pendiente de atención
+- Resuelta: Se tomó acción sobre el producto o factura
+- Ignorada: Se decidió no actuar sobre la alerta
+
+Ver y Filtrar Alertas
+
+1. En la página de alertas, encontrará la sección "Filtros de Búsqueda"
+2. Puede filtrar por:
+   - Tipo de Alerta: Roja, Amarilla, Verde, o Todas
+   - Estado: Activa, Resuelta, Ignorada, o Todas
+   - Fecha Desde: Fecha inicial del rango (opcional)
+   - Fecha Hasta: Fecha final del rango (opcional)
+   - Buscar Producto: Buscar por nombre de producto o factura (opcional)
+
+3. Haga clic en "Filtrar" para aplicar los filtros
+4. Haga clic en "Limpiar" para quitar todos los filtros
+
+La tabla muestra:
+- Tipo de alerta (icono con color)
+- Mensaje descriptivo
+- Producto o Factura asociada
+- Días hasta vencer
+- Fecha de generación
+- Estado actual
+- Acciones disponibles
+
+[CAPTURA DE PANTALLA: Lista de alertas con filtros]
+
+Generar Alertas Automáticas
+
+El sistema puede generar alertas automáticamente para:
+- Productos próximos a vencer (según días hasta caducidad)
+- Productos con stock bajo
+- Facturas de proveedores próximas a vencer
+
+Importante: Las alertas NO se generan automáticamente sin intervención. Debe presionar el botón "Generar Alertas Automáticas" para que el sistema analice los productos y facturas y cree o actualice las alertas.
+
+Para generar alertas:
+
+1. En la página de alertas, haga clic en el botón "Generar Alertas Automáticas"
+2. El sistema analizará todos los productos y facturas
+3. Se crearán o actualizarán las alertas según corresponda
+4. Verá un mensaje con las estadísticas de alertas generadas
+5. La página se recargará automáticamente para mostrar las nuevas alertas
+
+Nota: Se recomienda ejecutar esta función diariamente para mantener las alertas actualizadas.
+
+Crear Alerta Manualmente
+
+1. En la página de alertas, haga clic en "Nueva Alerta"
+2. Complete el formulario:
+   - Producto: Seleccione el producto para el cual crear la alerta (obligatorio)
+   - Tipo de Alerta: Seleccione Roja, Amarilla o Verde (obligatorio)
+   - Mensaje: Ingrese un mensaje descriptivo (obligatorio)
+3. Haga clic en "Crear Alerta"
+
+También puede crear una alerta desde el inventario:
+1. En la lista de productos, seleccione el producto
+2. Haga clic en "Crear Alertas" en las acciones masivas
+3. O desde el detalle del producto, use el botón "Crear Alerta"
+
+[CAPTURA DE PANTALLA: Formulario de crear alerta]
+
+Gestionar Estados de Alertas
+
+Puede cambiar el estado de una alerta de varias formas:
+
+Opción 1: Desde el menú de acciones individual
+1. En la lista de alertas, haga clic en el botón de acciones (icono de check) de la alerta
+2. Seleccione el nuevo estado:
+   - Marcar como Activa
+   - Marcar como Resuelta
+   - Marcar como Ignorada
+
+Opción 2: Acciones masivas
+1. Seleccione una o más alertas marcando los checkboxes
+2. Se mostrará una barra de acciones masivas
+3. Haga clic en el botón correspondiente:
+   - "Marcar como Resuelta": Marca las alertas seleccionadas como resueltas
+   - "Marcar como Ignorada": Marca las alertas seleccionadas como ignoradas
+   - "Marcar como Activa": Reactiva las alertas seleccionadas
+   - "Eliminar": Elimina las alertas seleccionadas
+
+Editar o Eliminar Alertas
+
+1. En la lista de alertas, use los botones de acciones:
+   - "Editar" (icono de lápiz): Modifica la alerta
+   - "Eliminar" (icono de papelera): Elimina la alerta permanentemente
+
+[CAPTURA DE PANTALLA: Acciones en alertas]
 
 ---
 
 Gestión de Merma
 
-Enviar Producto a Merma
-
-1. En la lista de productos, haga clic en "Enviar a Merma"
-2. Se abrirá un modal con los lotes disponibles del producto
-3. Seleccione los lotes y cantidades que desea enviar a merma:
-   - Puede seleccionar lotes específicos
-   - Puede ingresar cantidades parciales de un lote
-   - El valor por defecto es la cantidad total del lote
-
-4. Ingrese una observación (opcional)
-5. Haga clic en "Confirmar Merma"
-
-[CAPTURA DE PANTALLA: Modal de selección de lotes para merma]
+La gestión de merma permite registrar productos que no se pueden vender debido a vencimiento, deterioro, daño u otras razones. El sistema calcula automáticamente la pérdida económica asociada.
 
 Ver Productos en Merma
 
 1. En el menú lateral, haga clic en "Merma"
-2. Se mostrará la lista de productos que están en merma
-3. Puede ver:
-   - Producto
-   - Cantidad en merma
-   - Fecha de merma
-   - Lotes afectados
+2. Se mostrará la página de gestión de merma con:
+   - Resumen de merma: Total de productos, unidades y pérdida económica total
+   - Barra de búsqueda: Para buscar productos por nombre
+   - Tabla de productos en merma con toda la información
+
+La tabla muestra:
+- Producto: Nombre y descripción del producto
+- Estado: Estado de merma (En Merma, Vencido, Deteriorado, Dañado, etc.)
+- Motivo: Motivo detallado de la merma
+- Fecha Merma: Fecha y hora en que se registró la merma
+- Cantidad: Cantidad de unidades en merma
+- Precio Unitario: Precio unitario del producto
+- Pérdida Total: Pérdida económica calculada (cantidad × precio)
+- Fecha Caducidad: Fecha de caducidad del producto (si aplica)
+- Acciones: Botones para gestionar el registro
 
 [CAPTURA DE PANTALLA: Lista de merma]
 
+Enviar Productos a Merma
+
+Para enviar productos a merma, debe hacerlo desde el Inventario. Puede mover un producto individual o varios productos a la vez:
+
+Desde el Inventario
+
+1. En la página de Inventario, seleccione uno o más productos marcando los checkboxes en la primera columna de la tabla
+2. Haga clic en el botón "Mover a Merma" (icono de triángulo de advertencia) en la barra de acciones masivas
+3. El sistema mostrará diferentes opciones según la cantidad de productos seleccionados:
+
+   Si seleccionó UN solo producto:
+   - Se abrirá un modal para configurar la merma con selección de lotes
+   - Seleccione los lotes específicos que desea enviar a merma (si el producto tiene lotes)
+   - Para cada lote, puede:
+     * Seleccionar la cantidad total del lote (por defecto)
+     * Ingresar una cantidad parcial específica
+   - Ingrese el motivo detallado de la merma (obligatorio)
+   - Haga clic en "Confirmar Merma"
+
+   Si seleccionó VARIOS productos:
+   - Se mostrará un diálogo para ingresar el motivo detallado de la merma (obligatorio)
+   - Confirme la acción
+   - Todos los productos seleccionados se moverán a merma con su stock completo
+
+4. El sistema:
+   - Reducirá el stock del producto según los lotes seleccionados (si fue un solo producto con lotes)
+   - O reducirá todo el stock a 0 (si fueron varios productos o un producto sin lotes)
+   - Creará un registro en el historial de merma
+   - Calculará la pérdida económica
+   - Actualizará el estado del producto
+
+[CAPTURA DE PANTALLA: Modal de mover a merma desde inventario]
+
+Nota: Solo puede mover a merma productos que tienen stock disponible. Si un producto ya está en merma, no aparecerá en las acciones masivas del inventario.
+
 Eliminar Registro de Merma
 
-1. En la lista de merma, haga clic en "Eliminar" del registro
-2. Confirme la eliminación
-3. Nota: El producto permanecerá en inventario con stock cero, listo para reabastecimiento
+Si necesita eliminar un registro de merma (por ejemplo, si fue un error):
 
-[CAPTURA DE PANTALLA: Eliminar merma]
+1. En la página de Merma (menú lateral → "Merma"), localice el producto en la lista
+2. En la columna "Acciones" de la tabla, haga clic en el botón "Eliminar Registro" del producto
+3. Confirme la eliminación en el diálogo que aparece
+4. El registro de merma se eliminará del historial
+
+Nota Importante: 
+- Solo puede eliminar registros de merma desde la lista de merma, no desde el detalle del producto
+- Eliminar el registro de merma NO restaura automáticamente el stock del producto. El producto permanecerá con el stock actual
+- Si necesita restaurar stock, debe hacerlo manualmente mediante un ajuste de stock o registrando un nuevo lote
+
+Búsqueda y Filtrado
+
+En la página de merma puede:
+- Buscar productos por nombre usando la barra de búsqueda
+- Ordenar la tabla haciendo clic en los encabezados de columna (Cantidad, Precio, Pérdida, Fecha)
+
+[CAPTURA DE PANTALLA: Búsqueda en merma]
 
 ---
 
 Preguntas Frecuentes
 
+Gestión de Stock e Inventario
+
 ¿Cómo actualizo el stock de un producto?
 Puede actualizar el stock de tres formas:
-1.Ajuste manual:Use la opción "Ajustar Stock" en la lista de productos
-2.Recepción de factura:Al recibir una factura de proveedor, el stock se actualiza automáticamente
-3.Registro de producción:Al registrar un lote de producción propia, el stock se actualiza automáticamente
+1. Ajuste manual: Use la opción "Ajustes de Stock" desde el botón en la lista de productos o desde el menú lateral
+2. Recepción de factura: Al recibir una factura de proveedor, el stock se actualiza automáticamente
+3. Registro de producción: Al registrar un lote de producción propia, el stock se actualiza automáticamente
 
 ¿Qué pasa si intento vender más de lo que hay en stock?
-El sistema validará el stock disponible y mostrará un mensaje de error si no hay suficiente cantidad.
+El sistema validará el stock disponible y mostrará un mensaje de error si no hay suficiente cantidad. No podrá completar la venta hasta que haya stock suficiente.
 
-¿Cómo genero un reporte de ventas del mes?
-1. Vaya a "Reportes" → "Ventas"
-2. Seleccione el primer día del mes como fecha desde
-3. Seleccione el último día del mes como fecha hasta
-4. Haga clic en "Generar Reporte"
+¿Cómo funciona el sistema de lotes?
+El sistema utiliza lotes para rastrear productos con fechas de elaboración y caducidad. Las ventas utilizan el método FIFO (First In First Out), vendiendo primero los lotes más antiguos.
+
+¿Puedo ajustar el stock de un producto que tiene lotes?
+Sí, el sistema de ajustes de stock considera los lotes. Si es una entrada, se creará un nuevo lote. Si es una salida, se reducirá de los lotes existentes usando FIFO.
+
+Ventas y Punto de Venta
+
+¿Puedo realizar una venta sin seleccionar un cliente?
+Sí, puede dejar el selector de cliente en "-- Seleccionar cliente --" y la venta se registrará como "Cliente Genérico". Esta opción es útil para ventas rápidas.
+
+¿Puedo crear un cliente nuevo mientras estoy haciendo una venta?
+Sí, en el punto de venta puede hacer clic en el botón "Nuevo Cliente" para crear un cliente rápidamente. Solo necesita ingresar el nombre (obligatorio), y opcionalmente RUT, teléfono, email y dirección. El nuevo cliente quedará automáticamente seleccionado para la venta.
 
 ¿Puedo cancelar una venta?
-No, las ventas no se pueden cancelar. Si necesita corregir una venta, debe crear un ajuste de stock.
+No, las ventas no se pueden cancelar una vez procesadas. Si necesita corregir una venta, debe crear un ajuste de stock para corregir las cantidades.
+
+¿Cómo aplico descuentos en una venta?
+Puede aplicar descuentos individuales por producto. En el carrito, haga clic en el botón "Descuento" del producto y ingrese el porcentaje de descuento deseado. El descuento se aplicará solo a ese producto específico.
+
+Gestión de Usuarios
 
 ¿Quién puede gestionar usuarios?
-Solo los usuarios con permisos deSuperusuario (Administrador)pueden acceder al módulo de gestión de usuarios. Si necesita crear o modificar usuarios y no tiene acceso, contacte al administrador del sistema.
+Solo los usuarios con permisos de Superusuario (Administrador) pueden acceder al módulo de gestión de usuarios. Si necesita crear o modificar usuarios y no tiene acceso, contacte al administrador del sistema.
 
 ¿Qué pasa si olvido mi contraseña?
-Puede recuperar su contraseña usando la opción "¿Olvidó su contraseña?" en la pantalla de login. El sistema le enviará un correo electrónico con un enlace para restablecer su contraseña.
+Puede recuperar su contraseña usando la opción "¿Olvidó su contraseña?" en la pantalla de login. El sistema le enviará un correo electrónico con un enlace para restablecer su contraseña. El enlace tiene una validez limitada.
 
 ¿Puedo cambiar mi propia contraseña?
 Sí, un administrador puede editar su propio usuario y cambiar su contraseña. También puede usar la función de recuperación de contraseña si la olvida.
 
+Control de Producción
+
 ¿Cómo registro la producción de pan u otros productos?
 1. Vaya a "Producción" en el menú lateral
-2. Haga clic en "Registrar Producción"
-3. Seleccione el producto producido
+2. Haga clic en "Registrar Producción" o "Nueva Producción"
+3. Seleccione el producto producido (solo productos activos)
 4. Ingrese la cantidad (el sistema mostrará la unidad de medida automáticamente)
 5. Complete las fechas de elaboración y caducidad
 6. Haga clic en "Registrar Producción"
@@ -591,6 +953,62 @@ El sistema muestra automáticamente la unidad de medida del producto seleccionad
 - Si el producto está en unidades, al ingresar "20" se guardará como "20 unidades"
 
 Solo necesita ingresar el número; el sistema interpretará la unidad según la configuración del producto.
+
+Facturas de Proveedores
+
+¿Debo crear los productos antes de agregarlos a una factura?
+Sí, los productos deben estar creados en el sistema antes de poder agregarlos a una factura. Si necesita crear un producto nuevo, debe hacerlo primero desde el módulo de Inventario (botón "Agregar Producto").
+
+¿Puedo agregar productos a una factura después de recibirla?
+No, una vez que una factura ha sido recibida, no se pueden agregar más productos. Si necesita agregar productos adicionales, debe quitar la recepción primero.
+
+¿Qué pasa cuando recibo una factura?
+Al recibir una factura, el sistema actualiza automáticamente el stock de todos los productos agregados a la factura y crea los lotes correspondientes para cada producto.
+
+Sistema de Alertas
+
+¿Las alertas se generan automáticamente?
+No, las alertas no se generan automáticamente. Debe presionar el botón "Generar Alertas Automáticas" en la página de alertas para que el sistema analice los productos y facturas y cree o actualice las alertas. Se recomienda ejecutar esta función diariamente.
+
+¿Qué significan los colores de las alertas?
+- Roja (Urgente): 0-13 días hasta vencer. Requieren atención inmediata
+- Amarilla (Precaución): 14-29 días hasta vencer. Requieren atención pronto
+- Verde (OK): 30 o más días hasta vencer. Informativo, no urgente
+
+¿Puedo crear alertas manualmente?
+Sí, puede crear alertas manualmente desde la página de alertas haciendo clic en "Nueva Alerta", o desde el inventario usando las acciones masivas "Crear Alertas".
+
+Gestión de Merma
+
+¿Cómo muevo un producto a merma?
+1. En la página de Inventario, seleccione uno o más productos marcando los checkboxes
+2. Haga clic en el botón "Mover a Merma" en la barra de acciones masivas
+3. Si seleccionó un solo producto, podrá seleccionar lotes específicos. Si seleccionó varios, se moverá todo el stock
+4. Ingrese el motivo detallado de la merma (obligatorio)
+5. Confirme la acción
+
+¿Puedo eliminar un registro de merma?
+Sí, desde la página de Merma puede hacer clic en "Eliminar Registro" del producto. Esto elimina el registro del historial, pero no restaura automáticamente el stock del producto.
+
+Reportes
+
+¿Cómo genero un reporte de ventas del mes?
+1. Vaya a "Reportes" en el menú lateral
+2. Haga clic en "Ver Reporte" en la tarjeta de "Reporte de Ventas"
+3. Seleccione el primer día del mes como fecha desde
+4. Seleccione el último día del mes como fecha hasta
+5. Opcionalmente, seleccione filtros adicionales (cliente, canal)
+6. Haga clic en "Generar Reporte"
+
+¿Puedo exportar los reportes?
+Sí, todos los reportes pueden exportarse en tres formatos:
+- Excel (XLSX): Para análisis en hojas de cálculo
+- PDF: Para impresión y archivo
+- CSV: Para importación a otros sistemas
+
+¿Qué diferencia hay entre el reporte Top Productos por Cantidad y por Monto Neto?
+- Por Cantidad: Muestra los productos más vendidos por número de unidades
+- Por Monto Neto: Muestra los productos con mayor facturación (monto total vendido)
 
 ---
 

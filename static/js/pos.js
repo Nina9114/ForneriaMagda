@@ -479,7 +479,7 @@ function renderizarCarrito() {
                 <div class="carrito-item-body">
                     <!-- Nombre del producto y botón quitar -->
                     <div class="d-flex justify-content-between align-items-start mb-2">
-                        <strong class="text-truncate text-white" style="max-width: 180px;">
+                        <strong class="text-truncate text-black" style="max-width: 180px;">
                             ${item.nombre}
                         </strong>
                         <!-- Botón para quitar del carrito -->
